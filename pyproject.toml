@@ -1,0 +1,52 @@
+[project]
+name = "mmreid"
+version = "0.0.1"
+description = "Multimodal Person Re-Identification using Body and Facial features"
+authors = [
+    {name = "Eduardo Davalos"},
+]
+license = {file = "LICENSE.txt"}
+readme = "README.md"
+requires-python = ">3.6"
+
+keywords = ["multimodal", "person", "re-identification", "pytorch"]
+
+classifiers = [
+    "Programming Language :: Python :: 3"
+]
+
+dependencies = [
+    'numpy>=1.19.5',
+    'yolov5',
+    'opencv-python>=4.5.5',
+    'scipy>=1.5.4',
+    'torch>=1.10.1',
+    'torchvision>=0.11.2',
+    'motrackers@git+https://github.com/edavalosanaya/multi-object-tracker.git',
+    'torchreid'
+]
+
+[project.urls]
+homepath = "https://github.com/edavalosanaya/MMPersonReID"
+repository = "https://github.com/Ahmednull/MMPersonReID"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# https://setuptools.pypa.io/en/stable/userguide/datafiles.html
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+# Reference:
+# https://stackoverflow.com/questions/4673373/logging-within-pytest-tests
+[tool.pytest.ini_options]
+
+# Logging + CLI
+log_cli = true
+log_cli_level = "DEBUG"
+log_cli_format = "%(asctime)s.%(msecs)03d [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"

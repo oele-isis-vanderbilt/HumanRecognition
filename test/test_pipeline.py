@@ -7,6 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Third-party Imports
+import torch
 import cv2
 import pytest
 import numpy as np
@@ -21,7 +22,11 @@ assert TEST_VIDEO.exists()
 
 @pytest.fixture
 def pipeline():
-    return MMReIDPipeline(weights=CWD/'weights'/'crowdhuman.pt')
+
+    if torch.cuda.is_available():
+        return MMReIDPipeline(weights=CWD/'weights'/'crowdhuman.pt', device='cuda')
+    else:
+        return MMReIDPipeline(weights=CWD/'weights'/'crowdhuman.pt', device='cpu')
 
 def test_step_processing(pipeline):
 
