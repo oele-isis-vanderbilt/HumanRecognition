@@ -1,0 +1,50 @@
+# Built-in Imports
+from typing import Literal, List
+import os
+import pathlib
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Third-party Imports
+import cv2
+import pytest
+import numpy as np
+
+from mmreid import MMReIDPipeline, render
+
+# CONSTANTS
+CWD = pathlib.Path(os.path.abspath(__file__)).parent
+TEST_VIDEO = CWD / 'data' / 'PETS09-S2L1.mp4'
+
+assert TEST_VIDEO.exists()
+
+@pytest.fixture
+def pipeline():
+    return MMReIDPipeline(weights=CWD/'weights'/'crowdhuman.pt')
+
+def test_step_processing(pipeline):
+
+    cap = cv2.VideoCapture(str(TEST_VIDEO), 0)
+    cv2.namedWindow("output", cv2.WINDOW_NORMAL)
+
+    # Then perform homography
+    while True:
+
+        # Get video
+        ret, frame = cap.read()
+
+        if ret:
+
+            # Apply homography
+            tracks = pipeline.step(frame)
+            output = render(frame, tracks)
+            cv2.imshow("output", output)
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+        else:
+            break
+
+    # Closing the video
+    cv2.destroyAllWindows()
