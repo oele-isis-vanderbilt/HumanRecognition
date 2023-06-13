@@ -1,15 +1,15 @@
 import pathlib
-from typing import List, Tuple
 import logging
+from typing import List, Tuple, Dict
 
 import numpy as np
-import motrackers as mt
 
 from .detection import Detection
 from .detector import Detector
 from .results import ReIDResult
 from .track import Track
 from .reid import ReID
+from .tracker import Tracker
 
 logger = logging.getLogger('')
 
@@ -22,51 +22,52 @@ class MMReIDPipeline:
         
         # Create objects
         self.detector = Detector(weights, device=device)
-        self.tracker = mt.centroid_kf_tracker.CentroidKF_Tracker()
+        self.tracker = Tracker() 
         self.reid = ReID(device=device)
 
-    def _prep_for_tracker(self, detections: List[Detection], skip_cls:int=1):
-        """Convert list of items into numpy array of items"""
+    def split_body_and_face(self, detections: List[Detection]) -> Dict[str, List[Detection]]:
         
-        bboxes = []
-        scores = []
-        class_ids = []
+        head_detections = []
+        body_detections = []
 
+        # Split
         for d in detections:
-            if d.cls != skip_cls:
-                bboxes.append(np.array(d.tlwh))
-                scores.append(d.confidence)
-                class_ids.append(d.cls)
-        
-        bboxes = np.stack(bboxes)
-        scores = np.stack(scores)
-        class_ids = np.stack(class_ids)
+            if d.cls == 0:
+                body_detections.append(d)
+            elif d.cls == 1:
+                head_detections.append(d)
 
-        return bboxes, scores, class_ids
+        return {'body': body_detections, 'head': head_detections}
+
+    def match_head_to_track(self, tracks: List[Track], heads: List[Detection]) -> List[Track]:
+       
+        # Match data
+        for track in tracks:
+            for head in heads:
+                if track.wraps(head):
+                    track.face = head
+                    break
+
+        return tracks
 
     def step(self, frame: np.ndarray) -> List[Track]:
 
         # Obtain detections
         detections = self.detector(frame)
 
-        # Process detections with tracker
-        bboxes, scores, class_ids = self._prep_for_tracker(detections[0], skip_cls=1)
-        tracks = self.tracker.update(bboxes, scores, class_ids)
-        tracks = [Track(x) for x in tracks]
+        # Split between body and head
+        body_head_dict = self.split_body_and_face(detections[0])
+
+        # Process the detections to perform simple tracking
+        tracks = self.tracker.step(body_head_dict['body'])
         
-        logger.debug(tracks)
+        # Match the body and face detections
+        tracks = self.match_head_to_track(tracks, body_head_dict['head'])
 
         # Process Tracks to re-identify people
         id_map, tracks = self.reid.step(frame, tracks)
-
-        # Update tracker to match new ID
-        for old_id, new_id in id_map.items():
-            if old_id != new_id:
-                try:
-                    track = self.tracker.tracks.pop(old_id)
-                    track.id = new_id
-                    self.tracker.tracks[new_id] = track
-                except KeyError:
-                    ...
+        
+        # Update the tracker's IDs if any possible re-identification
+        self.tracker.update(id_map)
 
         return tracks

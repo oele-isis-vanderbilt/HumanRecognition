@@ -1,9 +1,10 @@
-import numpy as np
 from typing import List
 
 import cv2
+import numpy as np
 
 from .track import Track
+from .detection import Detection
 
 def render(frame: np.ndarray, tracks: List[Track]):
     
@@ -12,7 +13,7 @@ def render(frame: np.ndarray, tracks: List[Track]):
         # Draw bounding box
         tl = track.bbox[:2]
         br = tl + track.bbox[2:]
-        # import pdb; pdb.set_trace()
+
         cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,255,0), 1)
         cv2.putText(
             frame,
@@ -24,5 +25,11 @@ def render(frame: np.ndarray, tracks: List[Track]):
             1,
             2
         )
+
+        # If head, draw that too
+        if isinstance(track.face, Detection):
+            tl = track.face.tlwh[:2]
+            br = tl + track.face.tlwh[2:]
+            cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,255,0), 1)
 
     return frame

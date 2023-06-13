@@ -1,20 +1,13 @@
-from typing import Optional, List
+from typing import Optional, List, Tuple, Dict
 import logging
 
-from dataclasses import dataclass
 import torch
 import numpy as np
+import pandas as pd
 
 from .track import Track
 
 logger = logging.getLogger('')
-
-@dataclass
-class Entry:
-    ttl: Optional[int]
-    id: int
-    embedding: torch.Tensor
-    used: bool
 
 class Database:
 
@@ -25,77 +18,107 @@ class Database:
         self.entry_ttl = entry_ttl
 
         # Container
-        self.data = {}
+        self.data = pd.DataFrame({
+            'ttl': [], # int
+            'tlhw': [], # np.ndarray
+            'body_embedding': [], # np.ndarray
+            'face_embedding': [], # Optional[np.ndarray]
+            'used': [] # boolean
+        })
 
     def has(self, track: Track):
-        return track.id in self.data
+        return track.id in self.data.index
 
-    def unmark(self):
-        for entry in self.data.values():
-            entry.used = False
+    def mark_known(self, tracks: List[Track]):
 
-    def mark(self, tracks: List[Track]):
+        # Mark all as false
+        self.data['used'] = False
+
+        logger.debug(self.data)
+
+        # Update all 'used'
         for track in tracks:
-            if track.id in self.data:
-                self.data[track.id].used = True
+            logger.debug("Before: ", track.id)
+            self.data.iloc[track.id].used = True
+            logger.debug("After: ", track.id)
 
-    def compare(self, a: torch.Tensor, b: torch.Tensor):
-
-        # Compute the L2 norm of each tensor
-        norm_a = torch.norm(a, p=2, dim=1, keepdim=True)
-        norm_b = torch.norm(b, p=2, dim=1, keepdim=True)
-
-        # Normalize the tensors to have unit L2 norm
-        a_normed = a / norm_a
-        b_normed = b / norm_b
-
-        # Compute the cosine similarity between the two normalized tensors
-        similarity = torch.mm(a_normed, b_normed.t())
-
-        return similarity.item()
-
-    def step(self, old_ids: List[int], embeddings: torch.Tensor) -> List[int]:
-        """Processing incoming features and determine if matches.
-
-        Determine if there is a high enough similarity to match previous
-        tracks to incoming tracks. Need to assign them adds depending
+    def compare(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        """Cosine similarity comparison between arrays.
 
         Args:
-            features (torch.Tensor): features
+            a (np.ndarray): Nx512
+            b (np.ndarray): Mx512
 
         Returns:
-            List[int]: New list of IDs
+            np.ndarray: NxM
+
         """
+        # Transform and save
+        b_t = b.T
+        
+        product = np.matmul(a, b_t)
 
-        to_be_added_entries: List[Entry] = []
-        new_ids = []
-        for old_id, embedding in zip(old_ids, embeddings):
+        norm_a = np.linalg.norm(a,axis=1)
+        norm_a = norm_a.reshape(norm_a.size,1)
 
-            results = {}
-            ids = []
-            for id, entry in self.data.items():
-                if not entry.used:
-                    results[id] = self.compare(torch.unsqueeze(embedding, dim=0), torch.unsqueeze(entry.embedding, dim=0))
-                    ids.append(id)
+        norm_b_t = np.linalg.norm(b_t,axis=0)
+        norm_b_t = norm_b_t.reshape(1,norm_b_t.size)
+        
+        product_norms = np.matmul(norm_a,norm_b_t)
+        
+        similarity = np.subtract(1,np.divide(product,product_norms))
+        
+        return similarity
 
-            if not results:
-                to_be_added_entries.append(Entry(
-                    ttl=self.entry_ttl, 
-                    id=old_id, 
-                    embedding=embedding,
-                    used=True
-                ))
-                new_ids.append(old_id)
+    def add(self, track: Track):
+        self.data.loc[track.id] = [self.entry_ttl, track.bbox, track.embedding, track.face_embedding, 1]
 
+    def update(self):
+        
+        # Select the ids not used
+        unused_ids = self.data[self.data.used == False]
+
+        # Decrease their TTL
+        # unused_ids.ttl -= 1
+
+        # Remove entries that go below 0
+        # import pdb; pdb.set_trace()
+
+    def step(self, tracks: List[Track]) -> Tuple[Dict, List[Track]]:
+
+        # Container mapping old to new IDS if any change happen
+        id_map: Dict[int, int] = {}
+
+        # First determine if there are any unused ids to compare
+        unused_ids = self.data[self.data.used == False]
+
+        # Handling if no unused ids
+        if len(unused_ids) == 0:
+            for track in tracks:
+                self.add(track)
+            
+            self.update()
+            return id_map, tracks
+
+        a = np.stack([x.embedding for x in tracks])
+        b = np.stack(unused_ids.body_embedding.to_list())
+
+        # Compute cosine similarity
+        cosine = self.compare(a, b)
+
+        # Determine matches
+        argmax = np.argmax(cosine, axis=1)
+        max_values = cosine[:,argmax.squeeze()]
+        is_match = (max_values > self.threshold).reshape((-1,))
+        logger.debug(max_values)
+        logger.debug(is_match)
+
+        for i, m in enumerate(is_match):
+            if m:
+                id_map[tracks[i].id] = argmax[i]
+                tracks[i].id = argmax[i]
             else:
-                # logger.debug(f"{ids} - {results}")
-                scores = np.array(results.values())
-                best_score_idx = np.argmax(scores)
-                new_ids.append(ids[best_score_idx])
-                logger.debug(f"{ids} - {new_ids}")
+                self.add(tracks[i])
 
-        # After processing, add entries
-        for entry in to_be_added_entries:
-            self.data[entry.id] = entry
-
-        return new_ids
+        self.update()
+        return id_map, tracks
