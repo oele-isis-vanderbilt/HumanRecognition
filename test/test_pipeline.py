@@ -11,6 +11,7 @@ import torch
 import cv2
 import pytest
 import numpy as np
+import imutils
 
 from mmreid import MMReIDPipeline, render
 
@@ -31,7 +32,6 @@ def pipeline():
 def test_step_processing(pipeline):
 
     cap = cv2.VideoCapture(str(TEST_VIDEO), 0)
-    cv2.namedWindow("output", cv2.WINDOW_NORMAL)
 
     # Then perform homography
     while True:
@@ -44,9 +44,9 @@ def test_step_processing(pipeline):
             # Apply homography
             tracks = pipeline.step(frame)
             output = render(frame, tracks)
-            cv2.imshow("output", output)
+            cv2.imshow("output", imutils.resize(output, width=1000))
 
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            if cv2.waitKey(0) & 0xFF == ord("q"):
                 break
         else:
             break

@@ -13,7 +13,11 @@ logger = logging.getLogger('')
 
 class ReID:
 
-    def __init__(self, model_name: str = 'osnet_x1_0', device: str = 'cpu'):
+    def __init__(self, model_name: str = 'osnet_x1_0', device: str = 'cpu', update_knowns_interval: int = 10):
+       
+        # Save parameters
+        self.step_id = 0
+        self.update_knowns_interval = update_knowns_interval
        
         # Creating feature extractor
         self.extractor = FeatureExtractor(
@@ -31,7 +35,7 @@ class ReID:
         for track in tracks:
             # Obtain their image
             img = track.crop(frame)
-            track.embedding = F.normalize(self.extractor(img)).numpy().squeeze()
+            track.embedding = F.normalize(self.extractor(img)).cpu().numpy().squeeze()
 
             # if isinstance(track.head, np.ndarray):
             #     track.face_embedding = np.array([])
@@ -49,17 +53,29 @@ class ReID:
             else:
                 known_tracks.append(track)
 
-        logger.debug(f"Known tracks: {[t.id for t in known_tracks]}, Unknown: {[t.id for t in unknown_tracks]}")
+        logger.debug(f"STEP ID: {self.step_id}, Known tracks: {[t.id for t in known_tracks]}, Unknown: {[t.id for t in unknown_tracks]}")
+        
+        # Compute embeddings
+        if self.step_id % self.update_knowns_interval == 0:
+            known_tracks = self.compute_embeddings(frame, known_tracks)
+        
+        # Mark the known tracks
+        self.database.mark_known(known_tracks, self.step_id)
         
         # Only perform re-identification if new ids:
         if not unknown_tracks:
+            
+            # Update step id
+            self.step_id += 1
+
             return {}, tracks
 
-        # Compute embeddings
         unknown_tracks = self.compute_embeddings(frame, unknown_tracks)
 
         # Process the incoming features to database to see if matches are possible
-        self.database.mark_known(known_tracks)
-        id_map, unknown_tracks = self.database.step(unknown_tracks)
+        id_map, unknown_tracks = self.database.step(unknown_tracks, self.step_id) 
+
+        # Update step id
+        self.step_id += 1
 
         return id_map, tracks
