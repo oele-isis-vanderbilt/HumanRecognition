@@ -13,7 +13,7 @@ import pytest
 import numpy as np
 import imutils
 
-from mmreid import MMReIDPipeline, render
+from humanrecog import MMReIDPipeline, render
 
 # CONSTANTS
 CWD = pathlib.Path(os.path.abspath(__file__)).parent

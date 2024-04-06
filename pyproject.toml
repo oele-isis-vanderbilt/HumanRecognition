@@ -1,7 +1,7 @@
 [project]
-name = "mmreid"
+name = "humanrecog"
 version = "0.0.1"
-description = "Multimodal Person Re-Identification using Body and Facial features"
+description = "Human Recognition Pipeline"
 authors = [
     {name = "Eduardo Davalos"},
 ]
@@ -27,8 +27,7 @@ dependencies = [
 ]
 
 [project.urls]
-homepath = "https://github.com/edavalosanaya/MMPersonReID"
-repository = "https://github.com/Ahmednull/MMPersonReID"
+homepath = "https://github.com/oele-isis-vanderbilt/HumanRecognition"
 
 [build-system]
 requires = ["setuptools", "wheel"]
