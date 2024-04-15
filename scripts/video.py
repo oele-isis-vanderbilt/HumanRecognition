@@ -25,11 +25,12 @@ def main():
         results = pipeline.step(frame)
 
         # Render information
-        frame = hr.vis.render_detections(frame, results.face_detections, pipeline.face_detector.model.names)
+        # frame = hr.vis.render_detections(frame, results.face_detections, pipeline.face_detector.model.names)
         # frame = hr.vis.render_detections(frame, results.person_detections, pipeline.person_detector.model.names)
 
         # Perform tracking
-        frame = hr.vis.render_detections_tracks(frame, results.person_detections)
+        # frame = hr.vis.render_detections_tracks(frame, results.person_detections)
+        frame = hr.vis.render_tracks(frame, results.tracks)
 
         toc = time.perf_counter()
         cv2.putText(frame, f"FPS: {1 / (toc - tic):.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)

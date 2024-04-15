@@ -7,11 +7,10 @@ import numpy as np
 
 from .detection import Detection
 from .detector import Detector
-from .data_protocols import PipelineResults
-from .track import Track
+from .data_protocols import PipelineResults, Track
 from .reid import ReID
 from .tracker import Tracker
-from .utils import scale_fix
+from .utils import scale_fix, wraps_detection
 
 logger = logging.getLogger('')
 
@@ -49,7 +48,7 @@ class Pipeline:
         # Match data
         for track in tracks:
             for head in heads:
-                if track.wraps(head):
+                if wraps_detection(track,head):
                     track.face = head
                     break
 
@@ -75,10 +74,10 @@ class Pipeline:
         # body_head_dict = self.split_body_and_face(detections[0])
 
         # Process the detections to perform simple tracking
-        # tracks = self.tracker.step(person_detections)
+        tracks = self.tracker.step(person_detections)
         
-        # # Match the body and face detections
-        # tracks = self.match_head_to_track(tracks, body_head_dict['head'])
+        # Match the body and face detections
+        tracks = self.match_head_to_track(tracks, face_detections)
 
         # # Process Tracks to re-identify people
         # id_map, tracks = self.reid.step(frame, tracks)
@@ -91,5 +90,5 @@ class Pipeline:
         return PipelineResults(
             person_detections=person_detections,
             face_detections=face_detections,
-            # tracks=tracks
+            tracks=tracks
         )

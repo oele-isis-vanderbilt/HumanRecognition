@@ -15,7 +15,7 @@ def render_tracks(frame: np.ndarray, tracks: List[Track]):
         tl = track.bbox[:2]
         br = tl + track.bbox[2:]
 
-        cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,255,0), 1)
+        cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,0,255), 2)
         cv2.putText(
             frame,
             str(track.id),
@@ -23,15 +23,15 @@ def render_tracks(frame: np.ndarray, tracks: List[Track]):
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
             (0,0,255),
-            1,
+            2,
             2
         )
 
         # If head, draw that too
-        # if isinstance(track.face, Detection):
-        #     tl = track.face.tlwh[:2]
-        #     br = tl + track.face.tlwh[2:]
-        #     cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,255,0), 1)
+        if isinstance(track.face, Detection):
+            tl = track.face.tlwh[:2]
+            br = tl + track.face.tlwh[2:]
+            cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,0,255), 2)
 
     return frame
 

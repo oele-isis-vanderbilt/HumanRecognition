@@ -18,6 +18,7 @@ class Track:
     confidence: float
     embedding: np.ndarray = None
 
+    face: Detection = None
 
 @dataclass
 class ReIDResult:
@@ -30,4 +31,4 @@ class ReIDResult:
 class PipelineResults:
     person_detections: List[Detection]
     face_detections: List[Detection]
-    # tracks: List[Track]
+    tracks: List[Track]
