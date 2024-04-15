@@ -12,8 +12,8 @@ def render_tracks(frame: np.ndarray, tracks: List[Track]):
     for track in tracks:
       
         # Draw bounding box
-        tl = track.bbox[:2]
-        br = tl + track.bbox[2:]
+        tl = track.tlwh[:2]
+        br = tl + track.tlwh[2:]
 
         cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,0,255), 2)
         cv2.putText(
@@ -32,6 +32,16 @@ def render_tracks(frame: np.ndarray, tracks: List[Track]):
             tl = track.face.tlwh[:2]
             br = tl + track.face.tlwh[2:]
             cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,0,255), 2)
+            cv2.putText(
+                frame,
+                'f' + str(track.id),
+                tuple(tl.astype(int)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0,0,255),
+                2,
+                2
+            )
 
     return frame
 

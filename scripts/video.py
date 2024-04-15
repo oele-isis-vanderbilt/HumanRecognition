@@ -13,7 +13,11 @@ WEIGHTS_DIR = GIT_ROOT / "weights"
 
 def main():
     cap = cv2.VideoCapture(str(DATA_DIR / 'embodied_learning' / 'block-a-blue-day1-first-group-cam2.mp4'))
-    pipeline = hr.Pipeline(WEIGHTS_DIR / 'yolov8n.pt', WEIGHTS_DIR / 'yolov8n-face.pt', device='cuda') 
+    pipeline = hr.Pipeline(
+        WEIGHTS_DIR / 'yolov8n.pt', 
+        WEIGHTS_DIR / 'yolov8n-face.pt', device='cuda',
+        db=DATA_DIR / 'embodied_learning' / 'db'
+    ) 
 
     while True:
 

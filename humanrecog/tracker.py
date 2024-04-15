@@ -52,7 +52,7 @@ class Tracker():
         tracks = [Track(
             frame_id=x[0],
             id=x[1],
-            bbox=np.array(x[2:6]),
+            tlwh=np.array(x[2:6]),
             confidence=x[6]
         ) for x in tracks]
 

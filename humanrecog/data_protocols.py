@@ -14,17 +14,19 @@ class Detection:
 class Track:
     frame_id: int
     id: int
-    bbox: np.ndarray
+    tlwh: np.ndarray
     confidence: float
     embedding: np.ndarray = None
 
     face: Detection = None
+    face_embedding: np.ndarray = None
+
 
 @dataclass
-class ReIDResult:
-    bbox: np.ndarray # Nx4
-    scores: np.ndarray # Nx1
-    ids: np.ndarray # Nx1
+class ReIDTrack:
+    reid: int
+    track: Track
+    confidence: float
 
 
 @dataclass
