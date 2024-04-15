@@ -1,19 +1,17 @@
+import time
 import pathlib
 import os
 import numpy as np
 from collections import defaultdict
 
 import cv2
-# from humanrecog import Pipeline
-# import humanrecog as hr
-from ultralytics import YOLO
+import humanrecog as hr
+# from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator, colors
 
 GIT_ROOT = pathlib.Path(os.path.abspath(__file__)).parent.parent
 DATA_DIR = GIT_ROOT / "data"
 WEIGHTS_DIR = GIT_ROOT / "weights"
-
-track_history = defaultdict(lambda: [])
 
 def render_detections(frame, results, names):
     
@@ -45,21 +43,34 @@ def render_detections(frame, results, names):
 
 def main():
     cap = cv2.VideoCapture(str(DATA_DIR / 'embodied_learning' / 'block-a-blue-day1-first-group-cam2.mp4'))
-    model = YOLO(WEIGHTS_DIR / 'yolov8n.pt').to('cuda')
-    face_model = YOLO(WEIGHTS_DIR / 'yolov8n-face.pt').to('cuda')
-    names = model.model.names
-    face_names = face_model.model.names
+    pipeline = hr.Pipeline(WEIGHTS_DIR / 'yolov8n.pt', WEIGHTS_DIR / 'yolov8n-face.pt') 
+    # model = YOLO(WEIGHTS_DIR / 'yolov8n.pt').to('cuda')
+    # face_model = YOLO(WEIGHTS_DIR / 'yolov8n-face.pt').to('cuda')
+    # names = model.model.names
+    # face_names = face_model.model.names
 
     while True:
+
+        tic = time.perf_counter()
 
         ret, frame = cap.read()
 
         # Inference
-        # results = pipeline.step(frame)
-        results = model.track(frame, verbose=False)
-        results_face = face_model.track(frame, verbose=False)
-        render_detections(frame, results, names)
-        render_detections(frame, results_face, face_names)
+        results = pipeline.step(frame)
+        # results = model.track(frame, verbose=False)
+        # results_face = face_model.track(frame, verbose=False)
+
+        # Render information
+        frame = hr.vis.render_detections(frame, results.face_detections)
+        frame = hr.vis.render_detections(frame, results.person_detections)
+        # render_detections(frame, results, names)
+        # render_detections(frame, results_face, face_names)
+
+
+        # Perform tracking
+
+        toc = time.perf_counter()
+        cv2.putText(frame, f"FPS: {1 / (toc - tic):.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
 
         cv2.imshow("Video", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):

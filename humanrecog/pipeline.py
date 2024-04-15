@@ -6,7 +6,7 @@ import numpy as np
 
 from .detection import Detection
 from .detector import Detector
-from .results import ReIDResult
+from .data_protocols import PipelineResults
 from .track import Track
 from .reid import ReID
 from .tracker import Tracker
@@ -15,13 +15,11 @@ logger = logging.getLogger('')
 
 class Pipeline:
 
-    def __init__(self, weights: pathlib.Path, device: str = 'cpu'):
-
-        # Save inputs
-        self.weights = weights
+    def __init__(self, person_weights: pathlib.Path, face_weights: pathlib.Path, device: str = 'cpu'):
         
         # Create objects
-        self.detector = Detector(weights, device=device)
+        self.person_detector = Detector(person_weights, device=device)
+        self.face_detector = Detector(face_weights, device=device)
         self.tracker = Tracker() 
         self.reid = ReID(device=device)
 
@@ -50,24 +48,33 @@ class Pipeline:
 
         return tracks
 
-    def step(self, frame: np.ndarray) -> List[Track]:
+    def step(self, frame: np.ndarray) -> PipelineResults:
 
-        # Obtain detections
-        detections = self.detector(frame)
+        # Perform detection
+        person_detections = self.person_detector(frame)
+        face_detections = self.face_detector(frame)
 
-        # Split between body and head
-        body_head_dict = self.split_body_and_face(detections[0])
+        # # Obtain detections
+        # detections = self.detector(frame)
 
-        # Process the detections to perform simple tracking
-        tracks = self.tracker.step(body_head_dict['body'])
+        # # Split between body and head
+        # body_head_dict = self.split_body_and_face(detections[0])
+
+        # # Process the detections to perform simple tracking
+        # tracks = self.tracker.step(body_head_dict['body'])
         
-        # Match the body and face detections
-        tracks = self.match_head_to_track(tracks, body_head_dict['head'])
+        # # Match the body and face detections
+        # tracks = self.match_head_to_track(tracks, body_head_dict['head'])
 
-        # Process Tracks to re-identify people
-        id_map, tracks = self.reid.step(frame, tracks)
+        # # Process Tracks to re-identify people
+        # id_map, tracks = self.reid.step(frame, tracks)
         
-        # Update the tracker's IDs if any possible re-identification
-        self.tracker.update(id_map)
+        # # Update the tracker's IDs if any possible re-identification
+        # self.tracker.update(id_map)
 
-        return tracks
+        # return tracks
+
+        return PipelineResults(
+            person_detections=person_detections,
+            face_detections=face_detections
+        )
