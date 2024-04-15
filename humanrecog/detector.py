@@ -34,9 +34,7 @@ class Detector():
                 box[0] = box[0] - box[2] / 2
                 box[1] = box[1] - box[3] / 2
 
-
                 all_detections.append(Detection(
-                    id=track_id, 
                     tlwh=box, 
                     confidence=float(conf), 
                     cls=cls

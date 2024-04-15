@@ -61,8 +61,8 @@ def main():
         # results_face = face_model.track(frame, verbose=False)
 
         # Render information
-        frame = hr.vis.render_detections(frame, results.face_detections)
-        frame = hr.vis.render_detections(frame, results.person_detections)
+        frame = hr.vis.render_detections(frame, results.face_detections, pipeline.face_detector.model.names)
+        frame = hr.vis.render_detections(frame, results.person_detections, pipeline.person_detector.model.names)
         # render_detections(frame, results, names)
         # render_detections(frame, results_face, face_names)
 

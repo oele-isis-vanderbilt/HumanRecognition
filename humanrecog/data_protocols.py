@@ -4,7 +4,6 @@ from typing import List
 
 @dataclass
 class Detection:
-    id: int
     tlwh: np.ndarray # Nx4
     confidence: float
     cls: int

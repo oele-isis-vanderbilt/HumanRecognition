@@ -34,21 +34,22 @@ def render(frame: np.ndarray, tracks: List[Track]):
 
     return frame
 
-def render_detections(frame: np.ndarray, detections: List[Detection]):
+def render_detections(frame: np.ndarray, detections: List[Detection], names: List[str]):
     
     for detection in detections:
         tl = detection.tlwh[:2]
         br = tl + detection.tlwh[2:]
 
-        cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,255,0), 1)
+
+        cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,0,255), 2)
         cv2.putText(
             frame,
-            str(detection.id),
+            names[int(detection.cls)],
             tuple(tl.astype(int)),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
             (0,0,255),
-            1,
+            2,
             2
         )
 
