@@ -3,8 +3,10 @@ from typing import List, Dict
 import motrackers as mt
 import numpy as np
 
-from .detection import Detection
-from .track import Track
+from .data_protocols import Detection, Track
+
+# from .detection import Detection
+# from .track import Track
 
 class Tracker():
 
@@ -47,6 +49,11 @@ class Tracker():
         # Process detections with tracker
         bboxes, scores, class_ids = self._prep_for_tracker(detections)
         tracks = self._tracker.update(bboxes, scores, class_ids)
-        tracks = [Track(x) for x in tracks]
+        tracks = [Track(
+            frame_id=x[0],
+            id=x[1],
+            bbox=np.array(x[2:6]),
+            confidence=x[6]
+        ) for x in tracks]
 
         return tracks

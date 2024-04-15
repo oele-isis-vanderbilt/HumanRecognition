@@ -2,6 +2,7 @@ import pathlib
 import logging
 from typing import List, Tuple, Dict
 
+import imutils
 import numpy as np
 
 from .detection import Detection
@@ -10,12 +11,18 @@ from .data_protocols import PipelineResults
 from .track import Track
 from .reid import ReID
 from .tracker import Tracker
+from .utils import scale_fix
 
 logger = logging.getLogger('')
 
 class Pipeline:
 
-    def __init__(self, person_weights: pathlib.Path, face_weights: pathlib.Path, device: str = 'cpu'):
+    def __init__(
+            self, 
+            person_weights: pathlib.Path, 
+            face_weights: pathlib.Path, 
+            device: str = 'cpu'
+        ):
         
         # Create objects
         self.person_detector = Detector(person_weights, device=device)
@@ -50,9 +57,16 @@ class Pipeline:
 
     def step(self, frame: np.ndarray) -> PipelineResults:
 
+        # Reduce the image size to speed up the process
+        reduce_size = imutils.resize(frame, width=640)
+
         # Perform detection
-        person_detections = self.person_detector(frame)
-        face_detections = self.face_detector(frame)
+        person_detections = self.person_detector(reduce_size)
+        face_detections = self.face_detector(reduce_size)
+
+        # Fix the detection to match the original size
+        person_detections = scale_fix(frame.shape[:2], reduce_size.shape[:2], person_detections)
+        face_detections = scale_fix(frame.shape[:2], reduce_size.shape[:2], face_detections)
 
         # # Obtain detections
         # detections = self.detector(frame)
@@ -60,8 +74,8 @@ class Pipeline:
         # # Split between body and head
         # body_head_dict = self.split_body_and_face(detections[0])
 
-        # # Process the detections to perform simple tracking
-        # tracks = self.tracker.step(body_head_dict['body'])
+        # Process the detections to perform simple tracking
+        # tracks = self.tracker.step(person_detections)
         
         # # Match the body and face detections
         # tracks = self.match_head_to_track(tracks, body_head_dict['head'])
@@ -76,5 +90,6 @@ class Pipeline:
 
         return PipelineResults(
             person_detections=person_detections,
-            face_detections=face_detections
+            face_detections=face_detections,
+            # tracks=tracks
         )

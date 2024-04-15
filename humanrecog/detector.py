@@ -1,23 +1,16 @@
-
-import warnings
+import numpy as np
 import ultralytics as ul
+
 from .data_protocols import Detection
 
 class Detector():
-    def __init__(self, weights, imgsz=640, device="cpu", conf_thresh=0.4, iou_thresh=0.5):
-        self.model = ul.YOLO(weights)
-        # self.model.to(device)
-        # self.imgsz = imgsz
+    def __init__(self, weights, device="cpu"):
 
-        # self.model.conf = conf_thresh
-        # self.model.iou = iou_thresh
-        # self.model.agnostic = False  # NMS class-agnostic
-        # self.model.multi_label = False  # NMS multiple labels per box
-        # self.model.max_det = 1000  # maximum number of detections per image
+        # Save parameters
+        self.model = ul.YOLO(weights).to(device)
 
-    def predict(self, images):
-
-        results = self.model.track(images, verbose=False) 
+    def __call__(self, image: np.ndarray, persist=False):
+        results = self.model.track(image, persist=persist, verbose=False) 
 
         all_detections = []
         bboxes = results[0].boxes.xywh.cpu()
@@ -28,20 +21,17 @@ class Detector():
             confs = results[0].boxes.conf.float().cpu().tolist()
 
             for box, cls, conf, track_id in zip(bboxes, clss, confs, track_ids):
-
+                
                 # Convert xywh (centroid) to tlwh
                 box = box.numpy()
                 box[0] = box[0] - box[2] / 2
                 box[1] = box[1] - box[3] / 2
 
                 all_detections.append(Detection(
+                    id=track_id,
                     tlwh=box, 
                     confidence=float(conf), 
                     cls=cls
                 ))
-                # import pdb; pdb.set_trace()
         
         return all_detections
-
-    def __call__(self, images):
-        return self.predict(images)
