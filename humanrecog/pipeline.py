@@ -13,7 +13,7 @@ from .tracker import Tracker
 
 logger = logging.getLogger('')
 
-class MMReIDPipeline:
+class Pipeline:
 
     def __init__(self, weights: pathlib.Path, device: str = 'cpu'):
 

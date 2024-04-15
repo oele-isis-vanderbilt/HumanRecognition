@@ -1,11 +1,11 @@
 from .detection import Detection
 from .detector import Detector
-from .pipeline import MMReIDPipeline
+from .pipeline import Pipeline
 from .vis import render
 
 __all__ = [
     'Detection',
     'Detector',
-    'MMReIDPipeline',
+    'Pipeline',
     'render'
 ]
