@@ -35,3 +35,4 @@ class PipelineResults:
     person_detections: List[Detection]
     face_detections: List[Detection]
     tracks: List[Track]
+    reid_tracks: List[ReIDTrack]

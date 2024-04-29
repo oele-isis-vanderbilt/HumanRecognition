@@ -17,14 +17,6 @@ from .utils import crop
 
 logger = logging.getLogger('')
 
-def compute_cosine(embeddings, float_vector):
-    # Compute consine similarity
-    dot_product = np.dot(embeddings, float_vector)
-    norm_series = np.linalg.norm(embeddings)
-    norm_float_vector = np.linalg.norm(float_vector)
-    cosine_similarijty = dot_product / (norm_series * norm_float_vector)
-    return cosine_similarity
-
 def compute_matrix_cosine(m: np.ndarray, v: np.ndarray) -> np.ndarray:
     """Cosine similarity between a matrix and a vector.
 
@@ -206,7 +198,11 @@ class ReID:
 
         # Handle the known tracks
         if known_tracks:
-            ...
+            # Fetch the prior ReID ID
+            for track in known_tracks:
+                (reid_id, cosine) = self.tracklet_id_to_reid_id_map[track.id]
+                reid_track = ReIDTrack(reid=reid_id, name=self.reid_df.loc[reid_id, 'name'], cosine=cosine, track=track)
+                reid_tracks.append(reid_track)
 
         # Only if we have unknown tracks
         if unknown_tracks:
@@ -221,9 +217,8 @@ class ReID:
 
                     # If we found a match, use it
                     if success:
-                        import pdb; pdb.set_trace()
                         reid_tracks.append(reid_track)
                         self.seen_ids.append(track.id)
-                        self.tracklet_id_to_reid_id_map[track.id] = reid_track.id
+                        self.tracklet_id_to_reid_id_map[track.id] = (reid_track.reid, reid_track.cosine)
 
         return reid_tracks

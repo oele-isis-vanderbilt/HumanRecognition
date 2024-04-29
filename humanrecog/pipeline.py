@@ -97,5 +97,6 @@ class Pipeline:
         return PipelineResults(
             person_detections=person_detections,
             face_detections=face_detections,
-            tracks=tracks
+            tracks=tracks,
+            reid_tracks=reid_tracks
         )
