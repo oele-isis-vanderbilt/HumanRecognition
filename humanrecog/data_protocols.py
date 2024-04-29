@@ -25,8 +25,9 @@ class Track:
 @dataclass
 class ReIDTrack:
     reid: int
+    name: str
     track: Track
-    confidence: float
+    cosine: float
 
 
 @dataclass

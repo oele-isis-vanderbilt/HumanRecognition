@@ -47,33 +47,21 @@ class Pipeline:
 
     def match_head_to_track(self, tracks: List[Track], faces: List[Detection]) -> List[Track]:
        
-        # Match data
-        # for track in tracks:
-        #     for face in faces:
-        #         if wraps_detection(track, face):
-        #             track.face = face
-        #             break
-
         for face in faces:
             matches = defaultdict(list)
 
             for track_id, track in enumerate(tracks):
                 iou = compute_iou(face.tlwh, track.tlwh)
-                # x_centroid_distance = abs(face.tlwh[0] - track.tlwh[0])
                 y_centroid_distance = abs(face.tlwh[1] - track.tlwh[1])
                 matches['iou'].append(iou)
                 matches['track_id'].append(track_id)
-                # matches['x_distance'].append(x_centroid_distance)
                 matches['y_distance'].append(y_centroid_distance)
 
             matches_df = pd.DataFrame(matches)
             matches_df = matches_df[matches_df['iou'] > 0]
-            # import pdb; pdb.set_trace()
 
-            # Pick the the lowest x_distance
             # PIck the highest y_distance
             if not matches_df.empty:
-                # track_id = matches_df[matches_df['x_distance'] == matches_df['x_distance'].min()]['track_id'].values[0]
                 track_id = matches_df[matches_df['y_distance'] == matches_df['y_distance'].max()]['track_id'].values[0]
                 tracks[track_id].face = face
 
@@ -92,12 +80,6 @@ class Pipeline:
         person_detections = scale_fix(frame.shape[:2], reduce_size.shape[:2], person_detections)
         face_detections = scale_fix(frame.shape[:2], reduce_size.shape[:2], face_detections)
 
-        # # Obtain detections
-        # detections = self.detector(frame)
-
-        # # Split between body and head
-        # body_head_dict = self.split_body_and_face(detections[0])
-
         # Process the detections to perform simple tracking
         tracks = self.tracker.step(person_detections)
         
@@ -105,7 +87,7 @@ class Pipeline:
         tracks = self.match_head_to_track(tracks, face_detections)
 
         # Process Tracks to re-identify people
-        # reid_tracks = self.reid.step(frame, tracks)
+        reid_tracks = self.reid.step(frame, tracks)
         
         # # Update the tracker's IDs if any possible re-identification
         # self.tracker.update(id_map)

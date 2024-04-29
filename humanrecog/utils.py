@@ -52,7 +52,7 @@ def wraps_detection(t: Track, d: Detection) -> bool:
 
 def crop(track: Track, frame: np.ndarray) -> np.ndarray:
     """Crop the image given the bounding box"""
-    tl = track.bbox[:2].astype(int)
-    br = (tl + track.bbox[2:]).astype(int)
+    tl = track.tlwh[:2].astype(int)
+    br = (tl + track.tlwh[2:]).astype(int)
 
     return frame[tl[1]:br[1], tl[0]:br[0]]

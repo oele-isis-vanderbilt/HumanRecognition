@@ -3,6 +3,7 @@ import pathlib
 import os
 import numpy as np
 from collections import defaultdict
+from tqdm import tqdm
 
 import cv2
 import humanrecog as hr
@@ -15,11 +16,13 @@ def main():
     cap = cv2.VideoCapture(str(DATA_DIR / 'embodied_learning' / 'block-a-blue-day1-first-group-cam2.mp4'))
     pipeline = hr.Pipeline(
         WEIGHTS_DIR / 'yolov8n.pt', 
-        WEIGHTS_DIR / 'yolov8n-face.pt', device='cuda',
+        WEIGHTS_DIR / 'yolov8n-face.pt', device='cpu',
         db=DATA_DIR / 'embodied_learning' / 'db'
     ) 
 
-    while True:
+    length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    for i in tqdm(range(length), total=length):
 
         tic = time.perf_counter()
 

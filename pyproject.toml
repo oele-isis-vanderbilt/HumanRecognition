@@ -22,7 +22,11 @@ dependencies = [
     'torch>=1.10.1',
     'torchvision>=0.11.2',
     'motrackers@git+https://github.com/edavalosanaya/multi-object-tracker.git',
-    'torchreid'
+    'torchreid',
+    'ultralytics',
+    'gdown',
+    'tensorboard',
+    'deepface'
 ]
 
 [project.urls]

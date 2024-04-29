@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 import logging
 import pathlib
 import pickle
@@ -8,7 +8,7 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 from torchreid.reid.utils import FeatureExtractor
-import deepface
+from deepface import DeepFace
 import pandas as pd
 
 from .data_protocols import Track, ReIDTrack, Detection
@@ -22,14 +22,45 @@ def compute_cosine(embeddings, float_vector):
     dot_product = np.dot(embeddings, float_vector)
     norm_series = np.linalg.norm(embeddings)
     norm_float_vector = np.linalg.norm(float_vector)
-    cosine_similarity = dot_product / (norm_series * norm_float_vector)
+    cosine_similarijty = dot_product / (norm_series * norm_float_vector)
+    return cosine_similarity
+
+def compute_matrix_cosine(m: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """Cosine similarity between a matrix and a vector.
+
+    Args:
+        embeddings (np.ndarray): NxM matrix
+        float_vector (np.ndarray): M vector
+
+    Returns:
+        np.ndarray: N vector of cosine similarities
+    """
+    
+    # Normalize the rows of the matrix A
+    norm_m = np.linalg.norm(m, axis=1, keepdims=True)
+    m_normalized = m / norm_m
+
+    # Normalize the vector v
+    norm_v = np.linalg.norm(m)
+    v_normalized = v / norm_v
+
+    # Compute the cosine similarity
+    cosine_similarity = np.dot(m_normalized, v_normalized)
     return cosine_similarity
 
 class ReID:
 
-    def __init__(self, model_name: str = 'osnet_x1_0', db=pathlib.Path, device: str = 'cpu', update_knowns_interval: int = 10):
+    def __init__(
+            self, 
+            model_name: str = 'osnet_x1_0', 
+            db=pathlib.Path, 
+            device: str = 'cpu', 
+            update_knowns_interval: int = 10,
+            threshold = 0.1
+        ):
        
         # Save parameters
+        self.threshold = threshold
         self.step_id = 0
         self.update_knowns_interval = update_knowns_interval
        
@@ -42,6 +73,7 @@ class ReID:
 
         # Create simple database
         self.seen_ids = []
+        self.tracklet_id_to_reid_id_map = {}
         self.reid_df = pd.DataFrame({
             'id': [],
             'name': [],
@@ -67,11 +99,15 @@ class ReID:
 
             # Group by id and add to the reid_df
             for idx, (id, group) in enumerate(samples.groupby('id')):
+
+                embeddings = group['embedding'].values
+                embeddings_matrix = np.stack([np.array(e) for e in embeddings])
+
                 self.reid_df = self.reid_df._append({
                     'id': idx,
                     'name': id,
-                    'face_embeddings': group['embedding'].values,
-                    'person_embeddings': [],
+                    'face_embeddings': embeddings_matrix,
+                    'person_embeddings': np.empty(shape=(0, 512)),
                     'last_seen_step_id': -1
                 }, ignore_index=True)
 
@@ -86,32 +122,75 @@ class ReID:
 
         return tracks
     
-    def compute_face_embeddings(self, frame: np.ndarray, tracks: List[Track]) -> List[Track]:
+    def compute_face_embedding(self, frame: np.ndarray, track: Track) -> Track:
         
-        # For the tracks not found, find their features
-        for track in tracks:
-            # Obtain their image
-            img = crop(track.face, frame)
-            embedding = deepface.DeepFace.represent(img, model_name='Facenet', detector_backend="skip", enforce_detection=False)
-            track.face_embedding = F.normalize(torch.tensor(embedding)).cpu().numpy().squeeze()
+        # Obtain their image
+        img = crop(track.face, frame)
+        embedding_dict = DeepFace.represent(img, model_name='Facenet512', detector_backend="skip", enforce_detection=False)
+        embedding = embedding_dict[0]['embedding']
+        track.face_embedding = torch.tensor(embedding).cpu().numpy().squeeze()
 
-        return tracks
+        return track
     
-    def compare_person_embedding(self, track: Track):
+    def compare_person_embedding(self, frame: np.ndarray, track: Track) -> Tuple[bool, float, int]:
+            
+        for i, row in self.reid_df.iterrows():
+
+            if row['person_embeddings'].shape[0] == 0:
+                continue
+
+            # Expand the incoming track embedding to match the multiple embeddings
+            float_vector = np.full(shape=row['person_embeddings'].shape, fill_value=track.embedding)
+            import pdb; pdb.set_trace()
+
+        return False, 0, -1
+
+    def compare_face_embedding(self, frame: np.ndarray, track: Track) -> Tuple[bool, float, int]:
+
+        cosine_medians = []
+        for i, row in self.reid_df.iterrows():
+
+            if row['face_embeddings'].shape[0] == 0:
+                continue
+
+            # Compute face embedding
+            track = self.compute_face_embedding(frame, track)
+
+            # Expand the incoming track embedding to match the multiple embeddings
+            cosine_vector = compute_matrix_cosine(row['face_embeddings'],  track.face_embedding)
+            cosine_medians.append(np.median(cosine_vector))
+
+        # Select the highest cosine similarity
+        if cosine_medians:
+            max_cosine = max(cosine_medians)
+            if max_cosine > self.threshold:
+                idx = np.argmax(cosine_medians)
+                return True, max_cosine, idx
+            
+        return False, 0, -1
+
+    def handle_unknown_track(self, frame: np.ndarray, track: Track) -> Tuple[bool, Optional[ReIDTrack]]:
         
-        embeddings = self.reid_df['person_embeddings'].values
-        float_vector = np.full(shape=embeddings.shape, fill_value=track.embedding)
-        cosine_similarity = compute_cosine(embeddings, float_vector)
+        # First, compare with the body embeddings
+        success, cosine, id = self.compare_person_embedding(frame, track)
 
-    def compare_face_embedding(self, track: Track):
-        ...
+        # If we found a match, use it
+        if success:
+            name = self.reid_df.loc[id, 'name']
+            return True, ReIDTrack(reid=id, name=name, cosine=cosine, track=track)
+        
+        # If we didn't find a match, compare with the face embeddings (if face is available)
+        if track.face:
+            success, cosine, id = self.compare_face_embedding(frame, track)
 
-        # embeddings = self.reid_df['face_embeddings'].values
-        # float_vector = np.full(shape=embeddings.shape, fill_value=track.face_embedding)
-        # cosine_similarity = compute_cosine(embeddings, float_vector)
+            # If we found a match, use it
+            if success:
+                name = self.reid_df.loc[id, 'name']
+                return True, ReIDTrack(reid=id, name=name, cosine=cosine, track=track)
+        
+        return False, None
 
     def step(self, frame: np.ndarray, tracks: List[Track]) -> List[ReIDTrack]:
-        ...
 
         # First determine which Tracks need to be checked
         unknown_tracks: List[Track] = []
@@ -122,29 +201,29 @@ class ReID:
             else:
                 known_tracks.append(track)
 
+        # Create the container output
+        reid_tracks: List[ReIDTrack] = []
+
+        # Handle the known tracks
+        if known_tracks:
+            ...
+
         # Only if we have unknown tracks
         if unknown_tracks:
 
             # Only if we have people in the database
             if len(self.reid_df): 
-                unknown_tracks = self.compute_person_embeddings(frame, unknown_tracks)
-                for utrack in unknown_tracks:
+                for track in unknown_tracks:
 
-                    # First compare with known tracks in the DB
-                    self.compare_person_embedding(utrack)
+                    # First, compare with known tracks in the DB
+                    success, reid_track = self.handle_unknown_track(frame, track)
+                    # success, reid_track = False, None
 
-            # Then check only with the faces
-            unknown_tracks = self.compute_face_embeddings(frame, unknown_tracks)
-            for utrack in unknown_tracks:
-                
-                # First, compare with known tracks in the DB
-                self.compare_face_embedding(utrack)
-        
+                    # If we found a match, use it
+                    if success:
+                        import pdb; pdb.set_trace()
+                        reid_tracks.append(reid_track)
+                        self.seen_ids.append(track.id)
+                        self.tracklet_id_to_reid_id_map[track.id] = reid_track.id
 
-        # # Process the incoming features to database to see if matches are possible
-        # id_map, unknown_tracks = self.database.step(unknown_tracks, self.step_id) 
-
-        # # Update step id
-        # self.step_id += 1
-
-        # return id_map, tracks
+        return reid_tracks
