@@ -40,6 +40,21 @@ def compute_matrix_cosine(m: np.ndarray, v: np.ndarray) -> np.ndarray:
     cosine_similarity = np.dot(m_normalized, v_normalized)
     return cosine_similarity
 
+def selection_procedure(cosine_vectors: List[np.ndarray], threshold: float) -> Tuple[bool, float, int]:
+
+    if len(cosine_vectors) > 0:
+        medians = np.array([np.median(cosine_vector) for cosine_vector in cosine_vectors])
+        max_medians = np.max(medians)
+        max_index = np.argmax(medians)
+        if max_medians > threshold:
+            return True, max_medians, max_index
+
+    # for cosine_vector in cosine_vectors:
+    #     if np.max(cosine_vector) > threshold:
+    #         return True, np.max(cosine_vector), np.argmax(cosine_vector)
+        
+    return False, 0, -1
+
 class ReID:
 
     def __init__(
@@ -104,15 +119,12 @@ class ReID:
                 }, ignore_index=True)
 
 
-    def compute_person_embeddings(self, frame: np.ndarray, tracks: List[Track]) -> List[Track]:
+    def compute_person_embedding(self, frame: np.ndarray, track: Track) -> Track:
         
-        # For the tracks not found, find their features
-        for track in tracks:
-            # Obtain their image
-            img = crop(track, frame)
-            track.embedding = F.normalize(self.extractor(img)).cpu().numpy().squeeze()
-
-        return tracks
+        # Obtain their image
+        img = crop(track, frame)
+        track.embedding = F.normalize(self.extractor(img)).cpu().numpy().squeeze()
+        return track
     
     def compute_face_embedding(self, frame: np.ndarray, track: Track) -> Track:
         
@@ -125,21 +137,25 @@ class ReID:
         return track
     
     def compare_person_embedding(self, frame: np.ndarray, track: Track) -> Tuple[bool, float, int]:
-            
+
+        cosine_vectors = [] 
         for i, row in self.reid_df.iterrows():
 
             if row['person_embeddings'].shape[0] == 0:
                 continue
 
-            # Expand the incoming track embedding to match the multiple embeddings
-            float_vector = np.full(shape=row['person_embeddings'].shape, fill_value=track.embedding)
-            import pdb; pdb.set_trace()
+            # Compute the person embedding
+            track = self.compute_person_embedding(frame, track)
 
-        return False, 0, -1
+            # Expand the incoming track embedding to match the multiple embeddings
+            cosine_vector = compute_matrix_cosine(row['person_embeddings'],  track.embedding)
+            cosine_vectors.append(cosine_vector)
+
+        return selection_procedure(cosine_vectors, self.threshold)
 
     def compare_face_embedding(self, frame: np.ndarray, track: Track) -> Tuple[bool, float, int]:
 
-        cosine_medians = []
+        cosine_vectors = []
         for i, row in self.reid_df.iterrows():
 
             if row['face_embeddings'].shape[0] == 0:
@@ -150,16 +166,9 @@ class ReID:
 
             # Expand the incoming track embedding to match the multiple embeddings
             cosine_vector = compute_matrix_cosine(row['face_embeddings'],  track.face_embedding)
-            cosine_medians.append(np.median(cosine_vector))
+            cosine_vectors.append(cosine_vector)
 
-        # Select the highest cosine similarity
-        if cosine_medians:
-            max_cosine = max(cosine_medians)
-            if max_cosine > self.threshold:
-                idx = np.argmax(cosine_medians)
-                return True, max_cosine, idx
-            
-        return False, 0, -1
+        return selection_procedure(cosine_vectors, self.threshold)
 
     def handle_unknown_track(self, frame: np.ndarray, track: Track) -> Tuple[bool, Optional[ReIDTrack]]:
         
@@ -177,6 +186,11 @@ class ReID:
 
             # If we found a match, use it
             if success:
+
+                # Update the person embeddings
+                track = self.compute_person_embedding(frame, track)
+                self.reid_df.at[id, 'person_embeddings'] = np.vstack([self.reid_df.loc[id, 'person_embeddings'], track.embedding])
+
                 name = self.reid_df.loc[id, 'name']
                 return True, ReIDTrack(reid=id, name=name, cosine=cosine, track=track)
         
