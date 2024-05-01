@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Union
 import logging
 import pathlib
 import pickle
@@ -17,6 +17,28 @@ from .utils import crop, load_db_representation
 
 logger = logging.getLogger('')
 
+def find_cosine_distance(
+    source_representation: Union[np.ndarray, list], test_representation: Union[np.ndarray, list]
+) -> np.float64:
+    """
+    Find cosine distance between two given vectors
+    Args:
+        source_representation (np.ndarray or list): 1st vector
+        test_representation (np.ndarray or list): 2nd vector
+    Returns
+        distance (np.float64): calculated cosine distance
+    """
+    if isinstance(source_representation, list):
+        source_representation = np.array(source_representation)
+
+    if isinstance(test_representation, list):
+        test_representation = np.array(test_representation)
+
+    a = np.matmul(np.transpose(source_representation), test_representation)
+    b = np.sum(np.multiply(source_representation, source_representation))
+    c = np.sum(np.multiply(test_representation, test_representation))
+    return 1 - (a / (np.sqrt(b) * np.sqrt(c)))
+
 def compute_matrix_cosine(m: np.ndarray, v: np.ndarray) -> np.ndarray:
     """Cosine similarity between a matrix and a vector.
 
@@ -29,31 +51,30 @@ def compute_matrix_cosine(m: np.ndarray, v: np.ndarray) -> np.ndarray:
     """
     
     # Normalize the rows of the matrix A
-    norm_m = np.linalg.norm(m, axis=1, keepdims=True)
-    m_normalized = m / norm_m
+    # norm_m = np.linalg.norm(m, axis=1, keepdims=True)
+    # m_normalized = m / norm_m
 
-    # Normalize the vector v
-    norm_v = np.linalg.norm(m)
-    v_normalized = v / norm_v
+    # # Normalize the vector v
+    # norm_v = np.linalg.norm(m)
+    # v_normalized = v / norm_v
 
-    # Compute the cosine similarity
-    cosine_similarity = np.dot(m_normalized, v_normalized)
-    return cosine_similarity
+    # # Compute the cosine similarity
+    # cosine_similarity = np.dot(m_normalized, v_normalized)
+    # return cosine_similarity
+
+    return np.array([find_cosine_distance(row, v) for row in m])
 
 def selection_procedure(cosine_vectors: List[np.ndarray], threshold: float) -> Tuple[bool, float, int]:
 
     if len(cosine_vectors) > 0:
         medians = np.array([np.median(cosine_vector) for cosine_vector in cosine_vectors])
-        max_medians = np.max(medians)
-        print(max_medians)
-        max_index = np.argmax(medians)
-        if max_medians > threshold:
-            return True, max_medians, max_index
+        min_medians = np.min(medians)
+        print(min_medians)
+        min_index = np.argmin(medians)
+        if min_medians < threshold:
+            import pdb; pdb.set_trace()
+            return True, min_medians, min_index
 
-    # for cosine_vector in cosine_vectors:
-    #     if np.max(cosine_vector) > threshold:
-    #         return True, np.max(cosine_vector), np.argmax(cosine_vector)
-        
     return False, 0, -1
 
 class ReID:
@@ -66,7 +87,7 @@ class ReID:
             device: str = 'cpu', 
             update_knowns_interval: int = 10,
             face_threshold = 0.3,
-            person_threshold = 0.1
+            person_threshold = 0.5
         ):
        
         # Save parameters
@@ -109,7 +130,7 @@ class ReID:
         
         # Obtain their image
         img = crop(track.face, frame)
-        embedding_dict = DeepFace.represent(img, model_name=self.face_model_name, detector_backend="skip", enforce_detection=False, normalization='Facenet')
+        embedding_dict = DeepFace.represent(img, model_name=self.face_model_name, enforce_detection=False, normalization='Facenet')
         embedding = embedding_dict[0]['embedding']
         track.face_embedding = torch.tensor(embedding).cpu().numpy().squeeze()
 
