@@ -1,8 +1,15 @@
 from typing import List
+import pathlib
+import logging
 
+import pandas as pd
+from deepface import DeepFace
+from tqdm import tqdm
 import numpy as np
 
 from .data_protocols import Detection, Track
+
+logger = logging.getLogger('')
 
 def scale_fix(original_size, smaller_size, detections: List[Detection]):
     
@@ -56,3 +63,51 @@ def crop(track: Track, frame: np.ndarray) -> np.ndarray:
     br = (tl + track.tlwh[2:]).astype(int)
 
     return frame[tl[1]:br[1], tl[0]:br[0]]
+
+
+def load_db_representation(db: pathlib.Path, model_name: str) -> pd.DataFrame:
+    pkl_representation = db / f'representation_{model_name}.pkl'
+
+    # Load the database
+    if pkl_representation.exists():
+        reid_df = pd.read_pickle(pkl_representation)
+        return reid_df
+
+    # Create the database
+    else:
+
+        reid_dict = {
+            'id': [],
+            'name': [],
+            'face_embeddings': [],
+            'person_embeddings': [],
+            'last_seen_step_id': []
+        }
+        logger.debug("Creating the database representation")
+        for idx, folder in tqdm(enumerate(db.iterdir()), total=len(list(db.iterdir()))):
+
+            if folder.is_dir():
+                embeddings = []
+                for img in folder.iterdir():
+                    if img.suffix in ['.jpg', '.png']:
+                        embedding_dict = DeepFace.represent(
+                            img, 
+                            model_name=model_name, 
+                            detector_backend="skip", 
+                            enforce_detection=False,
+                            normalization='Facenet'
+                        )
+                        embedding = embedding_dict[0]['embedding']
+                        embeddings.append(embedding)
+
+                all_embeddings = np.stack([np.array(e) for e in embeddings])
+                reid_dict['id'].append(idx)
+                reid_dict['name'].append(folder.name)
+                reid_dict['face_embeddings'].append(all_embeddings)
+                reid_dict['person_embeddings'].append(np.empty(shape=(0, 512)))
+                reid_dict['last_seen_step_id'].append(-1)
+
+        reid_df = pd.DataFrame(reid_dict) 
+        reid_df.to_pickle(pkl_representation)
+
+        return reid_df

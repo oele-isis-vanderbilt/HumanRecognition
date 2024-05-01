@@ -12,7 +12,7 @@ from deepface import DeepFace
 import pandas as pd
 
 from .data_protocols import Track, ReIDTrack, Detection
-from .utils import crop
+from .utils import crop, load_db_representation
 # from .database import Database
 
 logger = logging.getLogger('')
@@ -45,6 +45,7 @@ def selection_procedure(cosine_vectors: List[np.ndarray], threshold: float) -> T
     if len(cosine_vectors) > 0:
         medians = np.array([np.median(cosine_vector) for cosine_vector in cosine_vectors])
         max_medians = np.max(medians)
+        print(max_medians)
         max_index = np.argmax(medians)
         if max_medians > threshold:
             return True, max_medians, max_index
@@ -59,21 +60,26 @@ class ReID:
 
     def __init__(
             self, 
-            model_name: str = 'osnet_x1_0', 
+            person_model_name: str = 'osnet_x1_0', 
+            face_model_name: str = 'Facenet512',
             db=pathlib.Path, 
             device: str = 'cpu', 
             update_knowns_interval: int = 10,
-            threshold = 0.1
+            face_threshold = 0.3,
+            person_threshold = 0.1
         ):
        
         # Save parameters
-        self.threshold = threshold
+        self.person_model_name = person_model_name
+        self.face_model_name = face_model_name
+        self.face_threshold = face_threshold
+        self.person_threshold = person_threshold
         self.step_id = 0
         self.update_knowns_interval = update_knowns_interval
        
         # Creating feature extractor
         self.extractor = FeatureExtractor(
-            model_name=model_name,
+            model_name=person_model_name,
             model_path='weights/osnet_x1_0_imagenet.pth',
             device=device
         )
@@ -90,34 +96,7 @@ class ReID:
         })
 
         # Load the database
-        pkl_representations = db / 'representations_facenet512.pkl'
-        if pkl_representations.exists():
-            with open(pkl_representations, 'rb') as f:
-                data = pickle.load(f)
-
-            samples = defaultdict(list)
-            for sample in data:
-                path = pathlib.Path(sample[0])
-                id = path.parent.name
-                samples['id'].append(id)
-                samples['embedding'].append(sample[1])
-
-            samples = pd.DataFrame(samples)
-
-            # Group by id and add to the reid_df
-            for idx, (id, group) in enumerate(samples.groupby('id')):
-
-                embeddings = group['embedding'].values
-                embeddings_matrix = np.stack([np.array(e) for e in embeddings])
-
-                self.reid_df = self.reid_df._append({
-                    'id': idx,
-                    'name': id,
-                    'face_embeddings': embeddings_matrix,
-                    'person_embeddings': np.empty(shape=(0, 512)),
-                    'last_seen_step_id': -1
-                }, ignore_index=True)
-
+        self.reid_df = load_db_representation(db, face_model_name)
 
     def compute_person_embedding(self, frame: np.ndarray, track: Track) -> Track:
         
@@ -130,7 +109,7 @@ class ReID:
         
         # Obtain their image
         img = crop(track.face, frame)
-        embedding_dict = DeepFace.represent(img, model_name='Facenet512', detector_backend="skip", enforce_detection=False)
+        embedding_dict = DeepFace.represent(img, model_name=self.face_model_name, detector_backend="skip", enforce_detection=False, normalization='Facenet')
         embedding = embedding_dict[0]['embedding']
         track.face_embedding = torch.tensor(embedding).cpu().numpy().squeeze()
 
@@ -151,7 +130,7 @@ class ReID:
             cosine_vector = compute_matrix_cosine(row['person_embeddings'],  track.embedding)
             cosine_vectors.append(cosine_vector)
 
-        return selection_procedure(cosine_vectors, self.threshold)
+        return selection_procedure(cosine_vectors, self.person_threshold)
 
     def compare_face_embedding(self, frame: np.ndarray, track: Track) -> Tuple[bool, float, int]:
 
@@ -168,7 +147,7 @@ class ReID:
             cosine_vector = compute_matrix_cosine(row['face_embeddings'],  track.face_embedding)
             cosine_vectors.append(cosine_vector)
 
-        return selection_procedure(cosine_vectors, self.threshold)
+        return selection_procedure(cosine_vectors, self.face_threshold)
 
     def handle_unknown_track(self, frame: np.ndarray, track: Track) -> Tuple[bool, Optional[ReIDTrack]]:
         
@@ -188,8 +167,8 @@ class ReID:
             if success:
 
                 # Update the person embeddings
-                track = self.compute_person_embedding(frame, track)
-                self.reid_df.at[id, 'person_embeddings'] = np.vstack([self.reid_df.loc[id, 'person_embeddings'], track.embedding])
+                # track = self.compute_person_embedding(frame, track)
+                # self.reid_df.at[id, 'person_embeddings'] = np.vstack([self.reid_df.loc[id, 'person_embeddings'], track.embedding])
 
                 name = self.reid_df.loc[id, 'name']
                 return True, ReIDTrack(reid=id, name=name, cosine=cosine, track=track)
