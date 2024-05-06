@@ -25,6 +25,10 @@ def scale_fix(original_size, smaller_size, detections: List[Detection]):
         d.tlwh[2] *= scale_x
         d.tlwh[3] *= scale_y
 
+        if d.keypoints is not None:
+            d.keypoints[..., 0] *= scale_x
+            d.keypoints[..., 1] *= scale_y
+
     return detections
 
 def compute_iou(x_tlwh, y_tlwh) -> float:

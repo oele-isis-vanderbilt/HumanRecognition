@@ -87,7 +87,8 @@ class Pipeline:
         tracks = self.match_head_to_track(tracks, face_detections)
 
         # Process Tracks to re-identify people
-        reid_tracks = self.reid.step(frame, tracks)
+        # reid_tracks = self.reid.step(frame, tracks)
+        reid_tracks = []
         
         # # Update the tracker's IDs if any possible re-identification
         # self.tracker.update(id_map)

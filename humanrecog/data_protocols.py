@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 @dataclass
 class Detection:
@@ -8,6 +8,7 @@ class Detection:
     tlwh: np.ndarray # Nx4
     confidence: float
     cls: int
+    keypoints: Optional[np.ndarray] = None
 
 
 @dataclass
