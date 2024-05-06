@@ -1,4 +1,5 @@
 from typing import List
+import hashlib
 
 import cv2
 import numpy as np
@@ -10,6 +11,29 @@ labels = [
     "left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist", # 5, 6, 7, 8, 9, 10
     "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle", # 11, 12, 13, 14, 15, 16
 ]
+
+def generate_color_from_hash(seed):
+    """
+    Generate a color based on an input integer using a hashing function.
+    
+    Parameters:
+    - seed: Input integer
+    
+    Returns:
+    - color: Tuple (R, G, B) representing the generated color
+    """
+    # Convert the input integer to a string and encode it
+    seed_str = str(seed).encode()
+    
+    # Generate a hash using hashlib
+    hash_value = hashlib.sha256(seed_str).hexdigest()
+    
+    # Extract RGB values from the hash value
+    r = int(hash_value[:2], 16)  # Extract the first two characters as the red component
+    g = int(hash_value[2:4], 16)  # Extract the next two characters as the green component
+    b = int(hash_value[4:6], 16)  # Extract the last two characters as the blue component
+    
+    return (r, g, b)
 
 def draw_skeleton_pose(image, keypoints, color=(0, 255, 0)):
     # Define the skeleton connections
@@ -45,30 +69,37 @@ def render_tracks(frame: np.ndarray, tracks: List[Track]):
         tl = track.tlwh[:2]
         br = tl + track.tlwh[2:]
 
-        cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,0,255), 2)
+        # Determine the color
+        color = generate_color_from_hash(track.id)
+
+        cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), color, 2)
         cv2.putText(
             frame,
             str(track.id),
             tuple(tl.astype(int)),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
-            (0,0,255),
+            color,
             2,
             2
         )
+
+        # If skeleton keypoints, draw them
+        if isinstance(track.keypoints, np.ndarray):
+            frame = draw_skeleton_pose(frame, track.keypoints, color)
 
         # If head, draw that too
         if isinstance(track.face, Detection):
             tl = track.face.tlwh[:2]
             br = tl + track.face.tlwh[2:]
-            cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), (0,0,255), 2)
+            cv2.rectangle(frame, tuple(tl.astype(int)), tuple(br.astype(int)), color, 2)
             cv2.putText(
                 frame,
                 'f' + str(track.id),
                 tuple(tl.astype(int)),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
-                (0,0,255),
+                color,
                 2,
                 2
             )
@@ -102,7 +133,6 @@ def render_detections(frame: np.ndarray, detections: List[Detection], names: Lis
         br = tl + detection.tlwh[2:]
 
         # If skeleton keypoints, draw them
-        # import pdb; pdb.set_trace()
         if isinstance(detection.keypoints, np.ndarray):
             frame = draw_skeleton_pose(frame, detection.keypoints)
 

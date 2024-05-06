@@ -53,7 +53,14 @@ class Tracker():
             frame_id=x[0],
             id=x[1],
             tlwh=np.array(x[2:6]),
-            confidence=x[6]
+            confidence=x[6],
         ) for x in tracks]
+
+        # Match tracks to keypoints
+        for track in tracks:
+            for detection in detections:
+                if (track.tlwh == detection.tlwh).all():
+                    track.keypoints = detection.keypoints
+                    break
 
         return tracks

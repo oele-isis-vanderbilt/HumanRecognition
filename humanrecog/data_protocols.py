@@ -18,7 +18,9 @@ class Track:
     tlwh: np.ndarray
     confidence: float
     embedding: np.ndarray = None
+    keypoints: Optional[np.ndarray] = None
 
+    # Optional
     face: Detection = None
     face_embedding: np.ndarray = None
 

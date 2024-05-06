@@ -18,7 +18,7 @@ def main():
     cap = cv2.VideoCapture(str(DATA_DIR / 'embodied_learning' / 'block-a-blue-day1-first-group-cam2.mp4'))
     pipeline = hr.Pipeline(
         WEIGHTS_DIR / 'yolov8n-pose.pt', 
-        WEIGHTS_DIR / 'yolov8n-face.pt', device='cuda',
+        WEIGHTS_DIR / 'yolov8n-face.pt', device='cpu',
         db=DATA_DIR / 'embodied_learning' / 'db'
     ) 
 
@@ -35,11 +35,11 @@ def main():
 
         # Render detection
         # frame = hr.vis.render_detections(frame, results.face_detections, pipeline.face_detector.model.names)
-        frame = hr.vis.render_detections(frame, results.person_detections, pipeline.person_detector.model.names)
+        # frame = hr.vis.render_detections(frame, results.person_detections, pipeline.person_detector.model.names)
 
         # Render tracking
         # frame = hr.vis.render_detections_tracks(frame, results.person_detections)
-        # frame = hr.vis.render_tracks(frame, results.tracks)
+        frame = hr.vis.render_tracks(frame, results.tracks)
 
         # Render ReID
         # frame = hr.vis.render_face_reid(frame, results.reid_tracks)
