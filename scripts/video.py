@@ -5,6 +5,8 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
 import cv2
 import humanrecog as hr
 
@@ -16,7 +18,7 @@ def main():
     cap = cv2.VideoCapture(str(DATA_DIR / 'embodied_learning' / 'block-a-blue-day1-first-group-cam2.mp4'))
     pipeline = hr.Pipeline(
         WEIGHTS_DIR / 'yolov8n.pt', 
-        WEIGHTS_DIR / 'yolov8n-face.pt', device='cpu',
+        WEIGHTS_DIR / 'yolov8n-face.pt', device='cuda',
         db=DATA_DIR / 'embodied_learning' / 'db'
     ) 
 

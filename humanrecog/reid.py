@@ -50,30 +50,38 @@ def compute_matrix_cosine(m: np.ndarray, v: np.ndarray) -> np.ndarray:
         np.ndarray: N vector of cosine similarities
     """
     
-    # Normalize the rows of the matrix A
-    # norm_m = np.linalg.norm(m, axis=1, keepdims=True)
-    # m_normalized = m / norm_m
-
-    # # Normalize the vector v
-    # norm_v = np.linalg.norm(m)
-    # v_normalized = v / norm_v
-
-    # # Compute the cosine similarity
-    # cosine_similarity = np.dot(m_normalized, v_normalized)
-    # return cosine_similarity
-
     return np.array([find_cosine_distance(row, v) for row in m])
 
 def selection_procedure(cosine_vectors: List[np.ndarray], threshold: float) -> Tuple[bool, float, int]:
 
     if len(cosine_vectors) > 0:
-        medians = np.array([np.median(cosine_vector) for cosine_vector in cosine_vectors])
-        min_medians = np.min(medians)
-        print(min_medians)
+
+        # Create a vector of the same length for the ids
+        ids = [np.array([i] * cosine_vector.shape[0]) for i, cosine_vector in enumerate(cosine_vectors)]
+
+        # Float cosine and ids
+        flat_cosine = np.concatenate(cosine_vectors)
+        flat_ids = np.concatenate(ids)
+
+        # Find the top-k values
+        top_k = np.argsort(flat_cosine)[:5]
+
+        # Get the cosine and ids
+        top_cosine = flat_cosine[top_k]
+        top_ids = flat_ids[top_k]
+
+        # Get the median cosine for each id
+        medians = np.array([np.median(top_cosine[top_ids == i]) for i in range(len(cosine_vectors))])
+
+        # Replace any Nan with infinities
+        medians[np.isnan(medians)] = np.inf
+
+        # Select the minimum median
+        min_median = np.min(medians)
         min_index = np.argmin(medians)
-        if min_medians < threshold:
-            import pdb; pdb.set_trace()
-            return True, min_medians, min_index
+
+        if min_median < threshold:
+            return True, min_median, min_index
 
     return False, 0, -1
 
