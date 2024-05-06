@@ -95,7 +95,7 @@ class ReID:
             device: str = 'cpu', 
             update_knowns_interval: int = 10,
             face_threshold = 0.3,
-            person_threshold = 0.5
+            person_threshold = 0.1
         ):
        
         # Save parameters
@@ -196,8 +196,8 @@ class ReID:
             if success:
 
                 # Update the person embeddings
-                # track = self.compute_person_embedding(frame, track)
-                # self.reid_df.at[id, 'person_embeddings'] = np.vstack([self.reid_df.loc[id, 'person_embeddings'], track.embedding])
+                track = self.compute_person_embedding(frame, track)
+                self.reid_df.at[id, 'person_embeddings'] = np.vstack([self.reid_df.loc[id, 'person_embeddings'], track.embedding])
 
                 name = self.reid_df.loc[id, 'name']
                 return True, ReIDTrack(reid=id, name=name, cosine=cosine, track=track)
