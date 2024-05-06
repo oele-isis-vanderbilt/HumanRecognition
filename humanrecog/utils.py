@@ -2,8 +2,11 @@ from typing import List
 import pathlib
 import logging
 
+import cv2
+import torch
 import pandas as pd
-from deepface import DeepFace
+# from deepface import DeepFace
+import facenet_pytorch
 from tqdm import tqdm
 import numpy as np
 
@@ -65,8 +68,24 @@ def crop(track: Track, frame: np.ndarray) -> np.ndarray:
     return frame[tl[1]:br[1], tl[0]:br[0]]
 
 
+def facenet_pytorch_preprocessing(img: np.ndarray) -> torch.Tensor:
+    """Preprocess an image for the facenet_pytorch model"""
+    img = cv2.resize(img.astype(np.float32), (160, 160))
+    # img = cv2.resize(img.astype(np.float32), (100,100))
+    img = np.moveaxis(img, -1, 0)
+    tensor = facenet_pytorch.prewhiten(torch.from_numpy(img).unsqueeze(dim=0))
+    return tensor
+
+
 def load_db_representation(db: pathlib.Path, model_name: str) -> pd.DataFrame:
     pkl_representation = db / f'representation_{model_name}.pkl'
+
+    # Create an inception resnet (in eval mode):
+    resnet = facenet_pytorch.InceptionResnetV1(pretrained='vggface2').eval()
+
+    # If cuda is available, use it
+    if torch.cuda.is_available():
+        resnet = resnet.cuda()
 
     # Load the database
     if pkl_representation.exists():
@@ -90,15 +109,22 @@ def load_db_representation(db: pathlib.Path, model_name: str) -> pd.DataFrame:
                 embeddings = []
                 for img in folder.iterdir():
                     if img.suffix in ['.jpg', '.png']:
-                        embedding_dict = DeepFace.represent(
-                            img, 
-                            model_name=model_name, 
-                            detector_backend="skip", 
-                            enforce_detection=False,
-                            normalization='Facenet'
-                        )
-                        embedding = embedding_dict[0]['embedding']
-                        embeddings.append(embedding)
+
+
+                        # Load the image
+                        img = cv2.imread(str(img))
+
+                        # Apply preprocessing
+                        tensor = facenet_pytorch_preprocessing(img)
+
+                        # If cuda is available, use it
+                        if torch.cuda.is_available():
+                            tensor = tensor.cuda()
+
+                        # Save embedding as a numpy array
+                        embedding = resnet(tensor)
+                        embeddings.append(embedding.cpu().detach().numpy().squeeze())
+
 
                 all_embeddings = np.stack([np.array(e) for e in embeddings])
                 reid_dict['id'].append(idx)

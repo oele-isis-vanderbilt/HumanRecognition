@@ -3,16 +3,18 @@ import logging
 import pathlib
 import pickle
 from collections import defaultdict
+import time
 
 import torch
 import numpy as np
 import torch.nn.functional as F
 from torchreid.reid.utils import FeatureExtractor
-from deepface import DeepFace
+import facenet_pytorch
+# from deepface import DeepFace
 import pandas as pd
 
 from .data_protocols import Track, ReIDTrack, Detection
-from .utils import crop, load_db_representation
+from .utils import crop, load_db_representation, facenet_pytorch_preprocessing
 # from .database import Database
 
 logger = logging.getLogger('')
@@ -80,6 +82,10 @@ def selection_procedure(cosine_vectors: List[np.ndarray], threshold: float) -> T
         min_median = np.min(medians)
         min_index = np.argmin(medians)
 
+        # import pdb; pdb.set_trace()
+        print(medians)
+        print(min_median, min_index)
+
         if min_median < threshold:
             return True, min_median, min_index
 
@@ -92,9 +98,9 @@ class ReID:
             person_model_name: str = 'osnet_x1_0', 
             face_model_name: str = 'Facenet512',
             db=pathlib.Path, 
-            device: str = 'cpu', 
+            device: str = 'cuda', 
             update_knowns_interval: int = 10,
-            face_threshold = 0.3,
+            face_threshold = 0.1,
             person_threshold = 0.1
         ):
        
@@ -105,6 +111,7 @@ class ReID:
         self.person_threshold = person_threshold
         self.step_id = 0
         self.update_knowns_interval = update_knowns_interval
+        self.device = device
        
         # Creating feature extractor
         self.extractor = FeatureExtractor(
@@ -112,6 +119,10 @@ class ReID:
             model_path='weights/osnet_x1_0_imagenet.pth',
             device=device
         )
+
+        # Create the face embedding model
+        self.face_embed = facenet_pytorch.InceptionResnetV1(pretrained='vggface2').eval()
+        self.face_embed.to(device)
 
         # Create simple database
         self.seen_ids = []
@@ -138,22 +149,25 @@ class ReID:
         
         # Obtain their image
         img = crop(track.face, frame)
-        embedding_dict = DeepFace.represent(img, model_name=self.face_model_name, enforce_detection=False, normalization='Facenet')
-        embedding = embedding_dict[0]['embedding']
-        track.face_embedding = torch.tensor(embedding).cpu().numpy().squeeze()
+        tensor = facenet_pytorch_preprocessing(img)
+        tensor = tensor.to(self.device)
+
+        # Compute the embedding
+        embedding = self.face_embed(tensor).cpu().detach().numpy().squeeze()
+        track.face_embedding = embedding
 
         return track
     
     def compare_person_embedding(self, frame: np.ndarray, track: Track) -> Tuple[bool, float, int]:
+
+        # Compute the person embedding
+        track = self.compute_person_embedding(frame, track)
 
         cosine_vectors = [] 
         for i, row in self.reid_df.iterrows():
 
             if row['person_embeddings'].shape[0] == 0:
                 continue
-
-            # Compute the person embedding
-            track = self.compute_person_embedding(frame, track)
 
             # Expand the incoming track embedding to match the multiple embeddings
             cosine_vector = compute_matrix_cosine(row['person_embeddings'],  track.embedding)
@@ -163,14 +177,14 @@ class ReID:
 
     def compare_face_embedding(self, frame: np.ndarray, track: Track) -> Tuple[bool, float, int]:
 
+        # Compute face embedding
+        track = self.compute_face_embedding(frame, track)
+
         cosine_vectors = []
         for i, row in self.reid_df.iterrows():
 
             if row['face_embeddings'].shape[0] == 0:
                 continue
-
-            # Compute face embedding
-            track = self.compute_face_embedding(frame, track)
 
             # Expand the incoming track embedding to match the multiple embeddings
             cosine_vector = compute_matrix_cosine(row['face_embeddings'],  track.face_embedding)
@@ -242,5 +256,7 @@ class ReID:
                         reid_tracks.append(reid_track)
                         self.seen_ids.append(track.id)
                         self.tracklet_id_to_reid_id_map[track.id] = (reid_track.reid, reid_track.cosine)
+
+                    break
 
         return reid_tracks

@@ -4,9 +4,6 @@ import cv2
 import numpy as np
 from .data_protocols import Detection, Track, ReIDTrack
 
-# from .track import Track
-# from .detection import Detection
-
 def render_tracks(frame: np.ndarray, tracks: List[Track]):
     
     for track in tracks:
