@@ -51,18 +51,31 @@ class Pipeline:
             matches = defaultdict(list)
 
             for track_id, track in enumerate(tracks):
-                iou = compute_iou(face.tlwh, track.tlwh)
-                y_centroid_distance = abs(face.tlwh[1] - track.tlwh[1])
-                matches['iou'].append(iou)
-                matches['track_id'].append(track_id)
-                matches['y_distance'].append(y_centroid_distance)
+                
+                # Determine if the nose is within the face bounding box
+                if isinstance(track.keypoints, np.ndarray):
+                    nose_keypoint = track.keypoints[0, 0]
+
+                    # Compute if the nose is within the face bounding box
+                    xmin = face.tlwh[0]
+                    ymin = face.tlwh[1]
+                    xmax = face.tlwh[0] + face.tlwh[2]
+                    ymax = face.tlwh[1] + face.tlwh[3]
+                    if xmin <= nose_keypoint[0] <= xmax and ymin <= nose_keypoint[1] <= ymax:
+
+                        # If match, compute the distance between the nose and
+                        # the center of the face bounding box
+                        face_center = (xmin + xmax) // 2, (ymin + ymax) // 2
+                        distance = np.linalg.norm(np.array(face_center) - np.array(nose_keypoint))
+
+                        matches['track_id'].append(track_id)
+                        matches['distance'].append(distance)
 
             matches_df = pd.DataFrame(matches)
-            matches_df = matches_df[matches_df['iou'] > 0]
 
-            # PIck the highest y_distance
+            # Pick the minimum distance
             if not matches_df.empty:
-                track_id = matches_df[matches_df['y_distance'] == matches_df['y_distance'].max()]['track_id'].values[0]
+                track_id = matches_df[matches_df['distance'] == matches_df['distance'].min()]['track_id'].values[0]
                 tracks[track_id].face = face
 
         return tracks
