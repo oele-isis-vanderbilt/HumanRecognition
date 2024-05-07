@@ -47,20 +47,31 @@ class Tracker():
     def step(self, detections: List[Detection]) -> List[Track]:
         
         # Process detections with tracker
-        bboxes, scores, class_ids = self._prep_for_tracker(detections)
-        tracks = self._tracker.update(bboxes, scores, class_ids)
-        tracks = [Track(
-            frame_id=x[0],
-            id=x[1],
-            tlwh=np.array(x[2:6]),
-            confidence=x[6],
-        ) for x in tracks]
+        # bboxes, scores, class_ids = self._prep_for_tracker(detections)
+        # tracks = self._tracker.update(bboxes, scores, class_ids)
+        # tracks = [Track(
+        #     frame_id=x[0],
+        #     id=x[1],
+        #     tlwh=np.array(x[2:6]),
+        #     confidence=x[6],
+        # ) for x in tracks]
 
-        # Match tracks to keypoints
-        for track in tracks:
-            for detection in detections:
-                if (track.tlwh == detection.tlwh).all():
-                    track.keypoints = detection.keypoints
-                    break
+        # # Match tracks to keypoints
+        # for track in tracks:
+        #     for detection in detections:
+        #         if (track.tlwh == detection.tlwh).all():
+        #             track.keypoints = detection.keypoints
+        #             break
+
+        tracks = []
+        for d in detections:
+            tracks.append(Track(
+                frame_id=0,
+                id=d.id,
+                tlwh=d.tlwh,
+                confidence=d.confidence,
+                # cls=d.cls,
+                keypoints=d.keypoints
+            ))
 
         return tracks

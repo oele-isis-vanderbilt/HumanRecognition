@@ -86,7 +86,7 @@ class Pipeline:
         reduce_size = imutils.resize(frame, width=640)
 
         # Perform detection
-        person_detections = self.person_detector(reduce_size)
+        person_detections = self.person_detector(reduce_size, persist=True)
         face_detections = self.face_detector(reduce_size)
 
         # Fix the detection to match the original size
