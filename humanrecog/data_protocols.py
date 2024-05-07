@@ -23,6 +23,7 @@ class Track:
     # Optional
     face: Detection = None
     face_embedding: np.ndarray = None
+    face_headpose: float = None
 
 
 @dataclass

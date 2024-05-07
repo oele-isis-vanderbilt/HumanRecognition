@@ -5,12 +5,13 @@ import cv2
 import numpy as np
 from .data_protocols import Detection, Track, ReIDTrack
 
-# Keypoints
+# keypoints
 labels = [
     "nose", "left_eye", "right_eye", "left_ear", "right_ear", # 0, 1, 2, 3, 4
     "left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist", # 5, 6, 7, 8, 9, 10
     "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle", # 11, 12, 13, 14, 15, 16
 ]
+
 
 def generate_color_from_hash(seed):
     """
@@ -35,6 +36,7 @@ def generate_color_from_hash(seed):
     
     return (r, g, b)
 
+
 def draw_skeleton_pose(image, keypoints, color=(0, 255, 0)):
     # Define the skeleton connections
     connections = [
@@ -57,6 +59,20 @@ def draw_skeleton_pose(image, keypoints, color=(0, 255, 0)):
             continue
         cv2.line(image, (int(keypoints[0][connection[0]][0]), int(keypoints[0][connection[0]][1])),
                  (int(keypoints[0][connection[1]][0]), int(keypoints[0][connection[1]][1])), color, 2)
+
+    return image
+
+
+def draw_head_pose(image, keypoints, average_angle):
+
+    # Calculate endpoint of line representing head pose
+    head_pose_length = 50
+    head_pose_endpoint_x = int(keypoints[0][0] + head_pose_length * np.cos(average_angle * np.pi / 180))
+    head_pose_endpoint_y = int(keypoints[0][1] - head_pose_length * np.sin(average_angle * np.pi / 180))
+
+    # Draw line representing head pose
+    cv2.arrowedLine(image, (int(keypoints[0][0]), int(keypoints[0][1])),
+                    (head_pose_endpoint_x, head_pose_endpoint_y), (0, 0, 255), 2)
 
     return image
 
@@ -87,6 +103,9 @@ def render_tracks(frame: np.ndarray, tracks: List[Track]):
         # If skeleton keypoints, draw them
         if isinstance(track.keypoints, np.ndarray):
             frame = draw_skeleton_pose(frame, track.keypoints, color)
+
+            if isinstance(track.face_headpose, float):
+                frame = draw_head_pose(frame, track.keypoints[0], track.face_headpose)
 
         # If head, draw that too
         if isinstance(track.face, Detection):

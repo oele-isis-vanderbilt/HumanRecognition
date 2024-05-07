@@ -11,7 +11,7 @@ from .detector import Detector
 from .data_protocols import PipelineResults, Track, Detection
 from .reid import ReID
 from .tracker import Tracker
-from .utils import scale_fix, wraps_detection, compute_iou
+from .utils import scale_fix, estimate_head_pose
 
 logger = logging.getLogger('')
 
@@ -80,6 +80,17 @@ class Pipeline:
 
         return tracks
 
+    def compute_head_pose(self, tracks: List[Track]) -> List[Track]:
+        
+        for track in tracks:
+            if isinstance(track.face, Detection):
+
+                # Estimate the head pose
+                headpose = estimate_head_pose(track.keypoints[0])
+                track.face_headpose = headpose
+
+        return tracks
+
     def step(self, frame: np.ndarray) -> PipelineResults:
 
         # Reduce the image size to speed up the process
@@ -98,6 +109,9 @@ class Pipeline:
         
         # Match the body and face detections
         tracks = self.match_head_to_track(tracks, face_detections)
+
+        # Compute head pose for each track
+        tracks = self.compute_head_pose(tracks)
 
         # Process Tracks to re-identify people
         # reid_tracks = self.reid.step(frame, tracks)

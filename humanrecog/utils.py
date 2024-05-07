@@ -72,6 +72,27 @@ def crop(track: Track, frame: np.ndarray) -> np.ndarray:
     return frame[tl[1]:br[1], tl[0]:br[0]]
 
 
+def estimate_head_pose(keypoints):
+    nose = keypoints[0]
+    left_eye = keypoints[1]
+    right_eye = keypoints[2]
+    left_ear = keypoints[3]
+    right_ear = keypoints[4]
+
+    # Calculate vectors representing lines from eyes to ears
+    left_eye_to_ear = np.array([left_ear[0] - left_eye[0], left_ear[1] - left_eye[1]])
+    right_eye_to_ear = np.array([right_ear[0] - right_eye[0], right_ear[1] - right_eye[1]])
+
+    # Calculate the angles between the eyes and ears
+    angle_left = np.arctan2(left_eye_to_ear[1], left_eye_to_ear[0]) * 180 / np.pi
+    angle_right = np.arctan2(right_eye_to_ear[1], right_eye_to_ear[0]) * 180 / np.pi
+
+    # Calculate the average angle
+    average_angle = (angle_left + angle_right) / 2
+
+    return average_angle
+
+
 def facenet_pytorch_preprocessing(img: np.ndarray) -> torch.Tensor:
     """Preprocess an image for the facenet_pytorch model"""
     img = cv2.resize(img.astype(np.float32), (160, 160))
