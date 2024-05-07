@@ -39,7 +39,7 @@ def main():
 
         # Render tracking
         # frame = hr.vis.render_detections_tracks(frame, results.person_detections)
-        frame = hr.vis.render_tracks(frame, results.tracks)
+        frame = hr.vis.render_tracks(frame, results.tracks, pipeline.camera_matrix, pipeline.dist_coeffs)
 
         # Render ReID
         # frame = hr.vis.render_face_reid(frame, results.reid_tracks)

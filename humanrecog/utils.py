@@ -72,25 +72,37 @@ def crop(track: Track, frame: np.ndarray) -> np.ndarray:
     return frame[tl[1]:br[1], tl[0]:br[0]]
 
 
-def estimate_head_pose(keypoints):
-    nose = keypoints[0]
-    left_eye = keypoints[1]
-    right_eye = keypoints[2]
-    left_ear = keypoints[3]
-    right_ear = keypoints[4]
+def estimate_gaze_vector(keypoints, camera_matrix, dist_coeffs):
+    # Define 3D model points of the eyes and nose
+    model_points = np.array([
+        [-35, 32.7, -39.5],     # Right ear
+        [-29.05, 32.7, -39.5],  # Right eye ball center
+        [35, 32.7, -39.5],      # Left ear
+        [29.05, 32.7, -39.5],   # Left eye ball center
+        [0, 0, 0],              # Nose
+    ])
 
-    # Calculate vectors representing lines from eyes to ears
-    left_eye_to_ear = np.array([left_ear[0] - left_eye[0], left_ear[1] - left_eye[1]])
-    right_eye_to_ear = np.array([right_ear[0] - right_eye[0], right_ear[1] - right_eye[1]])
+    image_points = np.array([
+        keypoints[4],  # Right ear
+        keypoints[2],  # Right eye ball center
+        keypoints[3],  # Left ear
+        keypoints[1],  # Left eye ball center
+        keypoints[0],   # Nose
+    ], dtype='double')
 
-    # Calculate the angles between the eyes and ears
-    angle_left = np.arctan2(left_eye_to_ear[1], left_eye_to_ear[0]) * 180 / np.pi
-    angle_right = np.arctan2(right_eye_to_ear[1], right_eye_to_ear[0]) * 180 / np.pi
+    all_good = []
+    for i in range(image_points.shape[0]):
+        if not np.all(image_points[i] == 0):
+            all_good.append(i)
 
-    # Calculate the average angle
-    average_angle = (angle_left + angle_right) / 2
+    if len(all_good) < 4:
+        return False, None, None
+    
+    image_points = image_points[all_good]
+    model_points = model_points[all_good]
 
-    return average_angle
+    # Solve PnP problem to estimate rotation and translation vectors
+    return cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
 
 
 def facenet_pytorch_preprocessing(img: np.ndarray) -> torch.Tensor:

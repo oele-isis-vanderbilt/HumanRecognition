@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 @dataclass
 class Detection:
@@ -23,7 +23,7 @@ class Track:
     # Optional
     face: Detection = None
     face_embedding: np.ndarray = None
-    face_headpose: float = None
+    face_headpose: Tuple[np.ndarray, np.ndarray] = None
 
 
 @dataclass

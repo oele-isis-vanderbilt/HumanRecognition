@@ -11,7 +11,7 @@ from .detector import Detector
 from .data_protocols import PipelineResults, Track, Detection
 from .reid import ReID
 from .tracker import Tracker
-from .utils import scale_fix, estimate_head_pose
+from .utils import scale_fix, estimate_gaze_vector
 
 logger = logging.getLogger('')
 
@@ -24,12 +24,30 @@ class Pipeline:
             db: pathlib.Path,
             device: str = 'cpu'
         ):
-        
+
+        # Default empty values
+        self.focal_length = 0
+        self.camera_matrix = np.zeros((3, 3))
+        self.dist_coeffs = np.zeros((4, 1))
+ 
         # Create objects
+        self.step_id = 0
         self.person_detector = Detector(person_weights, device=device)
         self.face_detector = Detector(face_weights, device=device)
         self.tracker = Tracker() 
         self.reid = ReID(db=db, device=device)
+
+    def update_camera_attributes(self, frame: np.ndarray):
+
+        # Camera matrix estimation
+        self.focal_length = frame.shape[1]
+        center = (frame.shape[1] / 2, frame.shape[0] / 2)
+        self.camera_matrix = np.array(
+            [[self.focal_length, 0, center[0]],
+            [0, self.focal_length, center[1]],
+            [0, 0, 1]], dtype="double"
+        )
+        self.dist_coeffs = np.zeros((4, 1))  # Assuming no lens distortion
 
     def split_body_and_face(self, detections: List[Detection]) -> Dict[str, List[Detection]]:
         
@@ -86,12 +104,18 @@ class Pipeline:
             if isinstance(track.face, Detection):
 
                 # Estimate the head pose
-                headpose = estimate_head_pose(track.keypoints[0])
-                track.face_headpose = headpose
+                success, rvec, tvec = estimate_gaze_vector(track.keypoints[0], self.camera_matrix, self.dist_coeffs)
+                if success:
+                    track.face_headpose = (rvec, tvec)
 
         return tracks
 
     def step(self, frame: np.ndarray) -> PipelineResults:
+
+        # If the first frame, update the camera attributes
+        if self.step_id == 0:
+            self.update_camera_attributes(frame)
+            self.step_id += 1
 
         # Reduce the image size to speed up the process
         reduce_size = imutils.resize(frame, width=640)

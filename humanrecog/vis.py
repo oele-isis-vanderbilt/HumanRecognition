@@ -63,21 +63,31 @@ def draw_skeleton_pose(image, keypoints, color=(0, 255, 0)):
     return image
 
 
-def draw_head_pose(image, keypoints, average_angle):
+def draw_head_pose(image, rvec, tvec, camera_matrix, dist_coeffs):
+    
+    (s, _) = cv2.projectPoints(
+        np.array([(0.0, 0.0, 0)]),
+        rvec, 
+        tvec, 
+        camera_matrix,
+        dist_coeffs
+    )
 
-    # Calculate endpoint of line representing head pose
-    head_pose_length = 50
-    head_pose_endpoint_x = int(keypoints[0][0] + head_pose_length * np.cos(average_angle * np.pi / 180))
-    head_pose_endpoint_y = int(keypoints[0][1] - head_pose_length * np.sin(average_angle * np.pi / 180))
+    (e, _) = cv2.projectPoints(
+        np.array([(0.0, 0.0, 100)]),
+        rvec, 
+        tvec, 
+        camera_matrix,
+        dist_coeffs
+    )
 
-    # Draw line representing head pose
-    cv2.arrowedLine(image, (int(keypoints[0][0]), int(keypoints[0][1])),
-                    (head_pose_endpoint_x, head_pose_endpoint_y), (0, 0, 255), 2)
+    # Draw the line
+    cv2.line(image, tuple(s.ravel().astype(int)), tuple(e.ravel().astype(int)), (0, 255, 0), 2)
 
     return image
 
 
-def render_tracks(frame: np.ndarray, tracks: List[Track]):
+def render_tracks(frame: np.ndarray, tracks: List[Track], camera_matrix, dist_coeffs):
     
     for track in tracks:
       
@@ -104,9 +114,6 @@ def render_tracks(frame: np.ndarray, tracks: List[Track]):
         if isinstance(track.keypoints, np.ndarray):
             frame = draw_skeleton_pose(frame, track.keypoints, color)
 
-            if isinstance(track.face_headpose, float):
-                frame = draw_head_pose(frame, track.keypoints[0], track.face_headpose)
-
         # If head, draw that too
         if isinstance(track.face, Detection):
             tl = track.face.tlwh[:2]
@@ -121,6 +128,15 @@ def render_tracks(frame: np.ndarray, tracks: List[Track]):
                 color,
                 2,
                 2
+            )
+
+        if isinstance(track.face_headpose, tuple):
+            frame = draw_head_pose(
+                frame, 
+                track.face_headpose[0], 
+                track.face_headpose[1],
+                camera_matrix,
+                dist_coeffs
             )
 
     return frame
