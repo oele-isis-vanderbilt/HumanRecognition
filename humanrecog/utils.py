@@ -14,6 +14,19 @@ from .data_protocols import Detection, Track
 
 logger = logging.getLogger('')
 
+MODEL_POINTS = np.array([
+    [-8.673, 0.1374, 19.843],   # Right ear
+    [-3.334, -10.689, 22.039],  # Right eye ball center
+
+    [ 8.673, 0.1374, 19.843],   # Left ear
+    [ 3.334, -10.689, 22.039],  # Left eye ball center
+
+    [-0.0305, -14.021, 17.594],              # Nose
+])
+
+# Make the noise (0,0,0) by shifting all points
+MODEL_POINTS -= MODEL_POINTS[4]
+
 def scale_fix(original_size, smaller_size, detections: List[Detection]):
     
     scale_x = original_size[1] / smaller_size[1]
@@ -73,12 +86,17 @@ def crop(track: Track, frame: np.ndarray) -> np.ndarray:
 
 
 def estimate_gaze_vector(keypoints, camera_matrix, dist_coeffs):
+
+    # import pdb; pdb.set_trace()
+
     # Define 3D model points of the eyes and nose
     model_points = np.array([
         [-35, 32.7, -39.5],     # Right ear
         [-29.05, 32.7, -39.5],  # Right eye ball center
+
         [35, 32.7, -39.5],      # Left ear
         [29.05, 32.7, -39.5],   # Left eye ball center
+
         [0, 0, 0],              # Nose
     ])
 
@@ -99,10 +117,12 @@ def estimate_gaze_vector(keypoints, camera_matrix, dist_coeffs):
         return False, None, None
     
     image_points = image_points[all_good]
-    model_points = model_points[all_good]
+    # model_points = model_points[all_good]
+    model_points = MODEL_POINTS[all_good]
+    import pdb; pdb.set_trace()
 
     # Solve PnP problem to estimate rotation and translation vectors
-    return cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
+    return cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs)
 
 
 def facenet_pytorch_preprocessing(img: np.ndarray) -> torch.Tensor:
