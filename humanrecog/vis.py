@@ -1,5 +1,6 @@
 from typing import List
 import hashlib
+from math import cos, sin, pi
 
 import cv2
 import numpy as np
@@ -63,28 +64,60 @@ def draw_skeleton_pose(image, keypoints, color=(0, 255, 0)):
     return image
 
 
-def draw_head_pose(image, rvec, tvec, camera_matrix, dist_coeffs):
+# def draw_head_pose(image, rvec, tvec, camera_matrix, dist_coeffs):
     
-    (s, _) = cv2.projectPoints(
-        np.array([(0.0, 0.0, 0)]),
-        rvec, 
-        tvec, 
-        camera_matrix,
-        dist_coeffs
-    )
+#     (s, _) = cv2.projectPoints(
+#         np.array([(0.0, 0.0, 0)]),
+#         rvec, 
+#         tvec, 
+#         camera_matrix,
+#         dist_coeffs
+#     )
 
-    (e, _) = cv2.projectPoints(
-        np.array([(0.0, 0.0, 100)]),
-        rvec, 
-        tvec, 
-        camera_matrix,
-        dist_coeffs
-    )
+#     (e, _) = cv2.projectPoints(
+#         np.array([(0.0, 0.0, 100)]),
+#         rvec, 
+#         tvec, 
+#         camera_matrix,
+#         dist_coeffs
+#     )
 
-    # Draw the line
-    cv2.line(image, tuple(s.ravel().astype(int)), tuple(e.ravel().astype(int)), (0, 255, 0), 2)
+#     # Draw the line
+#     cv2.line(image, tuple(s.ravel().astype(int)), tuple(e.ravel().astype(int)), (0, 255, 0), 2)
 
-    return image
+#     return image
+
+def draw_axis(img, yaw, pitch, roll, tdx=None, tdy=None, size = 100):
+    # Referenced from HopeNet https://github.com/natanielruiz/deep-head-pose
+    pitch = pitch * np.pi / 180
+    yaw = -(yaw * np.pi / 180)
+    roll = roll * np.pi / 180
+
+    if tdx != None and tdy != None:
+        tdx = tdx
+        tdy = tdy
+    else:
+        height, width = img.shape[:2]
+        tdx = width / 2
+        tdy = height / 2
+
+    # X-Axis pointing to right. drawn in red
+    x1 = size * (cos(yaw) * cos(roll)) + tdx
+    y1 = size * (cos(pitch) * sin(roll) + cos(roll) * sin(pitch) * sin(yaw)) + tdy
+
+    # Y-Axis | drawn in green
+    #        v
+    x2 = size * (-cos(yaw) * sin(roll)) + tdx
+    y2 = size * (cos(pitch) * cos(roll) - sin(pitch) * sin(yaw) * sin(roll)) + tdy
+
+    # Z-Axis (out of the screen) drawn in blue
+    x3 = size * (sin(yaw)) + tdx
+    y3 = size * (-cos(yaw) * sin(pitch)) + tdy
+
+    cv2.line(img, (int(tdx), int(tdy)), (int(x1),int(y1)),(0,0,255),2)
+    cv2.line(img, (int(tdx), int(tdy)), (int(x2),int(y2)),(0,255,0),2)
+    cv2.line(img, (int(tdx), int(tdy)), (int(x3),int(y3)),(255,0,0),2)
+    return img
 
 
 def render_tracks(frame: np.ndarray, tracks: List[Track], camera_matrix, dist_coeffs):
@@ -131,12 +164,19 @@ def render_tracks(frame: np.ndarray, tracks: List[Track], camera_matrix, dist_co
             )
 
         if isinstance(track.face_headpose, tuple):
-            frame = draw_head_pose(
-                frame, 
+
+            x_center = track.face.tlwh[0] + track.face.tlwh[2] / 2
+            y_center = track.face.tlwh[1] + track.face.tlwh[3] / 2
+            size = abs(track.face.tlwh[2] // 2)
+
+            frame = draw_axis(
+                frame,
                 track.face_headpose[0], 
                 track.face_headpose[1],
-                camera_matrix,
-                dist_coeffs
+                track.face_headpose[2],
+                tdx=x_center,
+                tdy=y_center,
+                size=size
             )
 
     return frame

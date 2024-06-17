@@ -6,12 +6,13 @@ import imutils
 import numpy as np
 import pandas as pd
 from collections import defaultdict
+from headpose_estimation import Headpose
 
 from .detector import Detector
 from .data_protocols import PipelineResults, Track, Detection
 from .reid import ReID
 from .tracker import Tracker
-from .utils import scale_fix, estimate_gaze_vector
+from .utils import scale_fix, estimate_gaze_vector, crop
 
 logger = logging.getLogger('')
 
@@ -36,6 +37,7 @@ class Pipeline:
         self.face_detector = Detector(face_weights, device=device)
         self.tracker = Tracker() 
         self.reid = ReID(db=db, device=device)
+        self.head_pose = Headpose(face_detection=False)
 
     def update_camera_attributes(self, frame: np.ndarray):
 
@@ -98,15 +100,24 @@ class Pipeline:
 
         return tracks
 
-    def compute_head_pose(self, tracks: List[Track]) -> List[Track]:
-        
+    def compute_head_pose(self, frame: np.ndarray, tracks: List[Track]) -> List[Track]:
+
+        track_imgs = [] 
+        crops = []
         for track in tracks:
             if isinstance(track.face, Detection):
 
-                # Estimate the head pose
-                success, rvec, tvec = estimate_gaze_vector(track.keypoints[0], self.camera_matrix, self.dist_coeffs)
-                if success:
-                    track.face_headpose = (rvec, tvec)
+                # Get the crop of the track
+                img = crop(track.face, frame)
+                track_imgs.append(track)
+                crops.append(img)
+
+        # Estimate the head pose
+        yaw, pitch, roll = self.head_pose.detect_multiple_headpose(crops)
+
+        # Assign the head pose to the track
+        for i, track in enumerate(track_imgs):
+            track.face_headpose = (yaw[i], pitch[i], roll[i])
 
         return tracks
 
@@ -135,7 +146,7 @@ class Pipeline:
         tracks = self.match_head_to_track(tracks, face_detections)
 
         # Compute head pose for each track
-        tracks = self.compute_head_pose(tracks)
+        tracks = self.compute_head_pose(frame, tracks)
 
         # Process Tracks to re-identify people
         # reid_tracks = self.reid.step(frame, tracks)
