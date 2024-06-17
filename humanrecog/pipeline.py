@@ -111,13 +111,16 @@ class Pipeline:
                 img = crop(track.face, frame)
                 track_imgs.append(track)
                 crops.append(img)
+                # yaw, pitch, roll = self.head_pose.detect_headpose(img)
+                # track.face_headpose = (yaw, pitch, roll)
 
         # Estimate the head pose
-        yaw, pitch, roll = self.head_pose.detect_multiple_headpose(crops)
+        if len(crops) > 0:
+            yaw, pitch, roll = self.head_pose.detect_multiple_headpose(crops)
 
-        # Assign the head pose to the track
-        for i, track in enumerate(track_imgs):
-            track.face_headpose = (yaw[i], pitch[i], roll[i])
+            # Assign the head pose to the track
+            for i, track in enumerate(track_imgs):
+                track.face_headpose = (yaw[i], pitch[i], roll[i])
 
         return tracks
 
