@@ -12,7 +12,7 @@ from .detector import Detector
 from .data_protocols import PipelineResults, Track, Detection
 from .reid import ReID
 from .tracker import Tracker
-from .utils import scale_fix, estimate_gaze_vector, crop
+from .utils import scale_fix, frontal_distance, crop
 
 logger = logging.getLogger('')
 
@@ -125,6 +125,7 @@ class Pipeline:
             if success:
                 for i, track in enumerate(track_imgs):
                     track.face_headpose = (yaw[i], pitch[i], roll[i])
+                    track.face_frontal = frontal_distance(yaw[i], pitch[i], roll[i])
 
         return tracks
 
@@ -159,13 +160,8 @@ class Pipeline:
         # reid_tracks = self.reid.step(frame, tracks)
         reid_tracks = []
         
-        # # Update the tracker's IDs if any possible re-identification
-        # self.tracker.update(id_map)
-
         # Increment the step
         self.step_id += 1
-
-        # return tracks
 
         return PipelineResults(
             person_detections=person_detections,

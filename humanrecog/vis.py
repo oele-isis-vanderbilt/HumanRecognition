@@ -179,6 +179,19 @@ def render_tracks(frame: np.ndarray, tracks: List[Track], camera_matrix, dist_co
                 size=size
             )
 
+            # Draw the angular distance
+            angular_distance = track.face_frontal
+            cv2.putText(
+                frame,
+                f"{angular_distance:.2f}",
+                (int(x_center), int(y_center)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                2,
+                2
+            )
+
     return frame
 
 def render_detections_tracks(frame: np.ndarray, detections: List[Detection]):

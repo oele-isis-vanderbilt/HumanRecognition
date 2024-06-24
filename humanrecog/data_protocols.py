@@ -24,6 +24,7 @@ class Track:
     face: Detection = None
     face_embedding: np.ndarray = None
     face_headpose: Tuple[np.ndarray, np.ndarray] = None
+    face_frontal_distance: float = None
 
 
 @dataclass

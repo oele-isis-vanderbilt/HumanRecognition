@@ -48,7 +48,7 @@ def main():
         cv2.putText(frame, f"FPS: {1 / (toc - tic):.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
 
         cv2.imshow("Video", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(0) & 0xFF == ord('q'):
             break
 
     cap.release()

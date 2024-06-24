@@ -125,6 +125,27 @@ def estimate_gaze_vector(keypoints, camera_matrix, dist_coeffs):
     return cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs)
 
 
+def frontal_distance(yaw, pitch, roll):
+    # Perfectly frontal head pose (0, 0, 0)
+    yaw_frontal, pitch_frontal, roll_frontal = 0, 0, 0
+    
+    # Convert degrees to radians for computation
+    yaw_rad = np.radians(yaw)
+    pitch_rad = np.radians(pitch)
+    roll_rad = np.radians(roll)
+    
+    # Compute the angular distance
+    angular_distance = np.sqrt((yaw_rad - yaw_frontal)**2 +
+                               (pitch_rad - pitch_frontal)**2 +
+                               (roll_rad - roll_frontal)**2)
+    
+    # Convert the angular distance back to degrees
+    angular_distance_deg = np.degrees(angular_distance)
+    
+    # Check if the angular distance is within the threshold
+    return angular_distance_deg
+
+
 def facenet_pytorch_preprocessing(img: np.ndarray) -> torch.Tensor:
     """Preprocess an image for the facenet_pytorch model"""
     img = cv2.resize(img.astype(np.float32), (160, 160))
