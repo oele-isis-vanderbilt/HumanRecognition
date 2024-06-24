@@ -150,7 +150,7 @@ class Pipeline:
         face_detections = scale_fix(frame.shape[:2], reduce_size.shape[:2], face_detections)
 
         # Process the detections to perform simple tracking
-        tracks = self.tracker.step(person_detections)
+        tracks = self.tracker.step(person_detections, frame)
         
         # Match the body and face detections
         tracks = self.match_head_to_track(tracks, face_detections)
