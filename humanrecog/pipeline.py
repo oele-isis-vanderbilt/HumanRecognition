@@ -107,20 +107,24 @@ class Pipeline:
         for track in tracks:
             if isinstance(track.face, Detection):
 
+                # Only perform the head pose estimation if the face has all visible keypoints
+                face_keypoints_idx = [0, 1, 2, 3, 4]
+                if any([(track.keypoints[0][i] == np.zeros((2))).all() for i in face_keypoints_idx]):
+                    continue
+
                 # Get the crop of the track
                 img = crop(track.face, frame)
                 track_imgs.append(track)
                 crops.append(img)
-                # yaw, pitch, roll = self.head_pose.detect_headpose(img)
-                # track.face_headpose = (yaw, pitch, roll)
 
         # Estimate the head pose
         if len(crops) > 0:
-            yaw, pitch, roll = self.head_pose.detect_multiple_headpose(crops)
+            success, yaw, pitch, roll = self.head_pose.detect_multiple_headpose(crops)
 
             # Assign the head pose to the track
-            for i, track in enumerate(track_imgs):
-                track.face_headpose = (yaw[i], pitch[i], roll[i])
+            if success:
+                for i, track in enumerate(track_imgs):
+                    track.face_headpose = (yaw[i], pitch[i], roll[i])
 
         return tracks
 
@@ -157,6 +161,9 @@ class Pipeline:
         
         # # Update the tracker's IDs if any possible re-identification
         # self.tracker.update(id_map)
+
+        # Increment the step
+        self.step_id += 1
 
         # return tracks
 
