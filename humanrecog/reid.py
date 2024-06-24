@@ -17,7 +17,7 @@ from .data_protocols import Track, ReIDTrack, Detection
 from .utils import crop, load_db_representation, facenet_pytorch_preprocessing
 # from .database import Database
 
-logger = logging.getLogger('')
+logger = logging.getLogger('humanrecog')
 
 def find_cosine_distance(
     source_representation: Union[np.ndarray, list], test_representation: Union[np.ndarray, list]
@@ -83,8 +83,8 @@ def selection_procedure(cosine_vectors: List[np.ndarray], threshold: float) -> T
         min_index = np.argmin(medians)
 
         # import pdb; pdb.set_trace()
-        print(medians)
-        print(min_median, min_index)
+        # print(medians)
+        # print(min_median, min_index)
 
         if min_median < threshold:
             return True, min_median, min_index
@@ -101,7 +101,8 @@ class ReID:
             device: str = 'cuda', 
             update_knowns_interval: int = 10,
             face_threshold = 0.1,
-            person_threshold = 0.1
+            person_threshold = 0.1,
+            headpose_threshold = 15,
         ):
        
         # Save parameters
@@ -109,6 +110,7 @@ class ReID:
         self.face_model_name = face_model_name
         self.face_threshold = face_threshold
         self.person_threshold = person_threshold
+        self.headpose_threshold = headpose_threshold
         self.step_id = 0
         self.update_knowns_interval = update_knowns_interval
         self.device = device
@@ -199,17 +201,19 @@ class ReID:
 
         # If we found a match, use it
         if success:
+            logger.debug(f"PersonReID: Found a match with cosine: {cosine} and id: {id}")
             name = self.reid_df.loc[id, 'name']
             return True, ReIDTrack(reid=id, name=name, cosine=cosine, track=track)
         
         # If we didn't find a match, compare with the face embeddings (if face is available)
-        if track.face:
+        if track.face and track.face_frontal_distance != None and track.face_frontal_distance < self.headpose_threshold:
             success, cosine, id = self.compare_face_embedding(frame, track)
 
             # If we found a match, use it
             if success:
+                logger.debug(f"FaceReID: Found a match with cosine: {cosine} and id: {id}")
 
-                # Update the person embeddings
+                # Update the personembeddings
                 track = self.compute_person_embedding(frame, track)
                 self.reid_df.at[id, 'person_embeddings'] = np.vstack([self.reid_df.loc[id, 'person_embeddings'], track.embedding])
 

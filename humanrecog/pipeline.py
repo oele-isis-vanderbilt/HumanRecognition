@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 from headpose_estimation import Headpose
+import onnxruntime as ort
+ort.set_default_logger_severity(4) # Strictly for development purposes
 
 from .detector import Detector
 from .data_protocols import PipelineResults, Track, Detection
@@ -125,7 +127,7 @@ class Pipeline:
             if success:
                 for i, track in enumerate(track_imgs):
                     track.face_headpose = (yaw[i], pitch[i], roll[i])
-                    track.face_frontal = frontal_distance(yaw[i], pitch[i], roll[i])
+                    track.face_frontal_distance = frontal_distance(yaw[i], pitch[i], roll[i])
 
         return tracks
 
@@ -157,8 +159,8 @@ class Pipeline:
         tracks = self.compute_head_pose(frame, tracks)
 
         # Process Tracks to re-identify people
-        # reid_tracks = self.reid.step(frame, tracks)
-        reid_tracks = []
+        reid_tracks = self.reid.step(frame, tracks)
+        # reid_tracks = []
         
         # Increment the step
         self.step_id += 1

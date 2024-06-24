@@ -42,13 +42,13 @@ def main():
         frame = hr.vis.render_tracks(frame, results.tracks, pipeline.camera_matrix, pipeline.dist_coeffs)
 
         # Render ReID
-        # frame = hr.vis.render_face_reid(frame, results.reid_tracks)
+        frame = hr.vis.render_face_reid(frame, results.reid_tracks)
 
         toc = time.perf_counter()
         cv2.putText(frame, f"FPS: {1 / (toc - tic):.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
 
         cv2.imshow("Video", frame)
-        if cv2.waitKey(0) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     cap.release()

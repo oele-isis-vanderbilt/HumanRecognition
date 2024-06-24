@@ -180,7 +180,7 @@ def render_tracks(frame: np.ndarray, tracks: List[Track], camera_matrix, dist_co
             )
 
             # Draw the angular distance
-            angular_distance = track.face_frontal
+            angular_distance = track.face_frontal_distance
             cv2.putText(
                 frame,
                 f"{angular_distance:.2f}",
